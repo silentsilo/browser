@@ -19,13 +19,12 @@ export interface NativeClientOptions {
 // Codes raised by the extension itself, beside the ones the app sends.
 export type LocalErrorCode = "no-host" | "timeout" | "bad-answer";
 
+// Carries the code only. An error answer's `message` is dropped here: the
+// popup shows the extension's own text for each code, never words that came
+// over the pipe.
 export class ClientError extends Error {
-  constructor(
-    readonly code: string,
-    // The app's own words, shown as they are. Absent for local errors.
-    readonly appMessage?: string,
-  ) {
-    super(appMessage ?? code);
+  constructor(readonly code: string) {
+    super(code);
     this.name = "ClientError";
   }
 }
@@ -107,8 +106,7 @@ export class NativeClient {
     clearTimeout(waiting.timer);
     if (answer.type === "error") {
       const code = typeof answer.code === "string" ? answer.code : "bad-answer";
-      const text = typeof answer.message === "string" ? answer.message : undefined;
-      waiting.reject(new ClientError(code, text));
+      waiting.reject(new ClientError(code));
     } else if (answer.type !== waiting.expect) {
       waiting.reject(new ClientError("bad-answer"));
     } else {

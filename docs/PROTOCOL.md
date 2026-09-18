@@ -89,10 +89,20 @@ matched on label and username.
 
 ```json
 { "id": "3", "type": "search", "query": "bank" }
-{ "id": "3", "type": "search", "logins": [ { "ref": "…", "label": "Bank", "username": "alex" } ] }
+{ "id": "3", "type": "search",
+  "logins": [ { "ref": "…", "label": "Bank", "username": "alex", "site": "bank.example" } ] }
 ```
 
-The answer has no `origin`: search is not tied to a site.
+The answer has no `origin`: search is not tied to a site. Each result carries
+`site`, the host (with the port, when the saved address has one) of the
+address the login was saved for, or `""` when it has none. The popup shows
+it beside each result, so a login saved for another site is named as such
+before anyone asks for a fill. A result without `site` is shown as saved for
+an unknown site.
+
+The popup offers search only after a deliberate click. On a site where
+nothing matches it first warns that the address may not be the site the
+person thinks, and only "Search anyway" opens the search box.
 
 ### fill
 
@@ -130,8 +140,14 @@ stores them, never sends them anywhere else and never logs them.
 | `cancelled` | the person declined or the prompt timed out |
 | `bad-request` | malformed, too large, unknown type, disallowed origin |
 | `busy` | another fill is waiting for confirmation |
+| `no-authenticator` | the silo has no security key or Windows Hello set up, so no fill can be confirmed |
 
-`message` is for the popup to show as it is; the extension adds nothing to it.
+`message` is informational, for logs and debugging. The extension does not
+display it: the popup shows its own text for each code, and one generic line
+for a code it does not know. Words that came over the pipe never reach the
+extension's interface, so a process squatting the pipe cannot use it to
+phish.
+
 A request too large or too malformed to read an `id` from is answered with
 `"id": ""`. The host's `app-not-running` also covers the app running with its
 Browser extension setting off: the pipe does not exist then either.

@@ -69,11 +69,16 @@ function render(view: View): void {
     return;
   }
   if (view.state === "update") {
-    const current = view.version ? `SilentSilo ${view.version} is installed. ` : "";
+    // Only a plain version number is echoed back; anything else is left out.
+    const current = /^v?\d{1,4}\.\d{1,4}\.\d{1,4}(-[0-9A-Za-z.]{1,20})?$/.test(view.version)
+      ? `SilentSilo ${view.version} is installed. `
+      : "";
     show(header(), message("Update SilentSilo", `${current}This extension needs version ${view.required} or later.`, "warn"));
     return;
   }
   if (view.state === "error") {
+    // view.message is always one of the extension's own texts (TEXT in
+    // service.ts), never words from the app.
     show(header(), message("Could not reach your logins", view.message, "warn"));
     return;
   }
@@ -98,8 +103,28 @@ function renderReady(view: Extract<View, { state: "ready" }>): void {
     parts.push(more);
     show(...parts);
   } else {
-    renderSearch(view.silo, view.notice, `No logins saved for ${view.site}.`);
+    renderNoMatch(view.silo, view.notice);
   }
+}
+
+// Nothing is saved for this site. A phishing page can say "search for
+// paypal", so the search box is not offered straight away: first a warning,
+// then a deliberate click, and nothing has focus until then.
+function renderNoMatch(silo: string | undefined, notice?: string): void {
+  const parts: Node[] = [header(silo), siteLine()];
+  if (notice) parts.push(banner(notice));
+  parts.push(
+    message(
+      "Nothing saved for this site",
+      `Nothing is saved for ${site}. If you expected a login here, check the address: this may not be the site you think.`,
+      "warn",
+    ),
+  );
+  const anyway = el("button", "link", "Search anyway");
+  anyway.type = "button";
+  anyway.addEventListener("click", () => renderSearch(silo, notice));
+  parts.push(anyway);
+  show(...parts);
 }
 
 function siteLine(): HTMLElement {
@@ -108,7 +133,19 @@ function siteLine(): HTMLElement {
   return line;
 }
 
-function loginList(logins: LoginSummary[]): HTMLElement {
+// Hosts equal, or one is www. plus the other: the app's own matching rule.
+function sameSite(a: string, b: string): boolean {
+  const bare = (host: string) => host.toLowerCase().replace(/^www\./, "");
+  return bare(a) === bare(b);
+}
+
+function savedFor(login: LoginSummary): HTMLElement {
+  if (login.site === undefined) return el("span", "saved other", "Saved for an unknown site");
+  if (!login.site) return el("span", "saved other", "Saved without a site");
+  return el("span", sameSite(login.site, site) ? "saved" : "saved other", `Saved for ${login.site}`);
+}
+
+function loginList(logins: LoginSummary[], showSite = false): HTMLElement {
   const list = el("ul", "logins");
   for (const login of logins) {
     const item = el("li");
@@ -116,6 +153,7 @@ function loginList(logins: LoginSummary[]): HTMLElement {
     button.type = "button";
     button.append(el("span", "label", login.label || "(no name)"));
     if (login.username) button.append(el("span", "user", login.username));
+    if (showSite) button.append(savedFor(login));
     button.addEventListener("click", () => fill(login.ref));
     item.append(button);
     list.append(item);
@@ -123,10 +161,10 @@ function loginList(logins: LoginSummary[]): HTMLElement {
   return list;
 }
 
-function renderSearch(silo: string | undefined, notice?: string, empty?: string): void {
+// Reached only by a click on "Search anyway" or "Search all logins".
+function renderSearch(silo: string | undefined, notice?: string): void {
   const parts: Node[] = [header(silo), siteLine()];
   if (notice) parts.push(banner(notice));
-  if (empty) parts.push(el("p", "muted", empty));
 
   const input = el("input", "search");
   input.type = "search";
@@ -163,7 +201,7 @@ function renderSearch(silo: string | undefined, notice?: string, empty?: string)
         return;
       }
       results.replaceChildren(
-        loginList(answer.logins),
+        loginList(answer.logins, true),
         el("p", "hint", "A login found by search may belong to another site. SilentSilo says so when you confirm."),
       );
     }, 250);

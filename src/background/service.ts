@@ -29,6 +29,15 @@ export const TEXT = {
   navigated: "The page changed before the fill. Nothing was filled.",
   cannotReach: "This page cannot be filled.",
   generic: "Something went wrong. Nothing was filled.",
+  // One per error code the app sends. The app's own `message` is never shown.
+  unknownRef: "That login is out of date. Close this and open it again.",
+  cancelled: "The fill was not confirmed in SilentSilo. Nothing was filled.",
+  busy: "Another fill is waiting for confirmation in SilentSilo. Confirm or cancel it there first.",
+  noAuthenticator:
+    "This silo has no security key or Windows Hello set up, so SilentSilo cannot confirm a fill. Add one in SilentSilo, then try again.",
+  badRequest: "SilentSilo refused the request. If this keeps happening, update SilentSilo and this extension.",
+  unknownCode: "SilentSilo refused the request for a reason this extension does not know. Update both to the latest version.",
+  alreadyWaiting: "A fill is already waiting for confirmation.",
 };
 
 export class Service {
@@ -109,7 +118,7 @@ export class Service {
     const probe = await this.inPage(tabId, { expectedOrigin: origin, fill: null });
     if (probe.outcome !== "ready") return pageFailure(probe);
 
-    if (this.waiting.has(tabId)) return { ok: false, message: "A fill is already waiting for confirmation." };
+    if (this.waiting.has(tabId)) return { ok: false, message: TEXT.alreadyWaiting };
     this.waiting.add(tabId);
     let answer: Record<string, unknown>;
     try {
@@ -167,9 +176,11 @@ function readLogins(value: unknown): LoginSummary[] | null {
   const logins: LoginSummary[] = [];
   for (const item of value) {
     if (typeof item !== "object" || item === null) return null;
-    const { ref, label, username } = item as Record<string, unknown>;
+    const { ref, label, username, site } = item as Record<string, unknown>;
     if (typeof ref !== "string" || typeof label !== "string") return null;
-    logins.push({ ref, label, username: typeof username === "string" ? username : "" });
+    const login: LoginSummary = { ref, label, username: typeof username === "string" ? username : "" };
+    if (typeof site === "string") login.site = site;
+    logins.push(login);
   }
   return logins;
 }
@@ -189,8 +200,17 @@ export function errorView(error: unknown): Exclude<View, { state: "ready" }> {
       return { state: "error", message: TEXT.timeout };
     case "bad-answer":
       return { state: "error", message: TEXT.badAnswer };
+    case "unknown-ref":
+      return { state: "error", message: TEXT.unknownRef };
+    case "cancelled":
+      return { state: "error", message: TEXT.cancelled };
+    case "busy":
+      return { state: "error", message: TEXT.busy };
+    case "no-authenticator":
+      return { state: "error", message: TEXT.noAuthenticator };
+    case "bad-request":
+      return { state: "error", message: TEXT.badRequest };
     default:
-      // The app's message is shown as it is; the extension adds nothing.
-      return { state: "error", message: error.appMessage ?? TEXT.generic };
+      return { state: "error", message: TEXT.unknownCode };
   }
 }

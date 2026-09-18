@@ -12,6 +12,9 @@ export interface LoginSummary {
   ref: string;
   label: string;
   username: string;
+  // The site the login was saved for, in `search` answers: a host, "" when
+  // the login has no address. Absent in `logins` answers.
+  site?: string;
 }
 
 export type Request =
@@ -51,12 +54,14 @@ export type ErrorCode =
   | "unknown-ref"
   | "cancelled"
   | "bad-request"
-  | "busy";
+  | "busy"
+  | "no-authenticator";
 
 export interface ErrorAnswer {
   id: string;
   type: "error";
   code: ErrorCode | string;
+  // Informational only. The extension never displays it.
   message?: string;
 }
 

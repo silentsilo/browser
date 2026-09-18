@@ -80,13 +80,13 @@ describe("answers", () => {
     await expect(status).resolves.toMatchObject({ state: "unlocked" });
   });
 
-  it("turns an error answer into a ClientError with the app's code and words", async () => {
+  it("turns an error answer into a ClientError with the code, and drops the words", async () => {
     const { client, ports } = setup();
     const fill = client.request({ type: "fill", origin: "https://github.com", ref: "r" }, 1000);
-    ports[0].answer({ id: "1", type: "error", code: "cancelled", message: "The fill was not confirmed." });
+    ports[0].answer({ id: "1", type: "error", code: "cancelled", message: "Call 0800 SUPPORT now" });
     const error = await rejection(fill);
     expect(error.code).toBe("cancelled");
-    expect(error.appMessage).toBe("The fill was not confirmed.");
+    expect(JSON.stringify({ ...error, message: error.message })).not.toContain("SUPPORT");
   });
 
   it("rejects an answer of the wrong type", async () => {

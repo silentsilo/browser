@@ -50,9 +50,14 @@ page  <->  extension (content script + popup)  <->  desktop app (native messagin
 The app matches a login to a site by origin, the same rule the Android
 autofill uses since core 1.6.0: a saved login carries the site it was saved
 for, and it is offered only to that site. Nothing "looks similar": `paypal`
-in the address of a phishing page matches nothing. When nothing matches, the
-popup offers a search, so the choice to fill somewhere else is the user's and
-is made deliberately.
+in the address of a phishing page matches nothing.
+
+When nothing matches, the popup does not open a search box. A phishing page
+can tell the person "search for paypal", so the popup says first that
+nothing is saved for this address and that it may not be the site they
+think, and the search box appears only after a click on "Search anyway".
+Each search result names the site it was saved for, and the app's
+confirmation says again when that is not the site being filled.
 
 ## The channel
 
@@ -65,8 +70,10 @@ under the current user, and removed on uninstall.
 
 Messages carry the origin, a request id and, on the way back, labels or one
 login. The app refuses anything from an origin the browser did not report
-itself, and it refuses when no silo is unlocked, with a reason the popup
-shows in words.
+itself, and it refuses when no silo is unlocked. An error answer carries a
+code; the popup shows its own text for each code and never the words that
+came with it, so nothing on the other end of the pipe can write into the
+extension's interface.
 
 ## Confirmation
 

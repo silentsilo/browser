@@ -106,6 +106,19 @@ describe("search", () => {
     expect(result.state === "results" && result.logins.length).toBe(20);
   });
 
+  it("keeps the site each result was saved for", async () => {
+    const { service } = setup({
+      search: { logins: [{ ref: "r1", label: "Bank", username: "", site: "bank.example" }, { ref: "r2", label: "X" }] },
+    });
+    expect(await service.search("b")).toEqual({
+      state: "results",
+      logins: [
+        { ref: "r1", label: "Bank", username: "", site: "bank.example" },
+        { ref: "r2", label: "X", username: "" },
+      ],
+    });
+  });
+
   it("sends nothing for an empty query", async () => {
     const { service, requests } = setup({});
     expect(await service.search("   ")).toEqual({ state: "results", logins: [] });
@@ -146,20 +159,20 @@ describe("fill", () => {
     expect(await service.fill(3, "r1")).toEqual({ ok: false, message: TEXT.navigated });
   });
 
-  it("shows the app's message as it is when the person declines", async () => {
-    const { service } = setup({ fill: new ClientError("cancelled", "The fill was not confirmed.") });
+  it("says in its own words that the person declined", async () => {
+    const { service } = setup({ fill: new ClientError("cancelled") });
     const result = await service.fill(3, "r1");
-    expect(result).toMatchObject({ ok: false, message: "The fill was not confirmed." });
+    expect(result).toMatchObject({ ok: false, message: TEXT.cancelled });
   });
 
   it("keeps the outcome for the next popup, once, when the popup closed meanwhile", async () => {
     const { service } = setup({
       status: unlocked,
       logins: githubLogins,
-      fill: new ClientError("cancelled", "The fill was not confirmed."),
+      fill: new ClientError("cancelled"),
     });
     await service.fill(3, "r1");
-    expect(await service.open(3)).toMatchObject({ notice: "The fill was not confirmed." });
+    expect(await service.open(3)).toMatchObject({ notice: TEXT.cancelled });
     expect(await service.open(3)).toMatchObject({ notice: undefined });
   });
 
