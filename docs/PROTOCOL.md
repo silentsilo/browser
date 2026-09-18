@@ -55,8 +55,9 @@ for that `type` or `"type": "error"`.
 { "id": "1", "type": "status", "state": "unlocked", "silo": "Personal", "version": "1.2.0" }
 ```
 
-`state` is `unlocked`, `locked` or `no-silo`. `version` is the app's version,
-so the extension can say "update SilentSilo" when the protocol moves.
+`state` is `unlocked`, `locked` or `no-silo`. `silo` is present only while
+unlocked. `version` is the app's version, so the extension can say "update
+SilentSilo" when the protocol moves.
 
 ### logins
 
@@ -70,7 +71,7 @@ the tab (`chrome.tabs`), never from the page.
 ```
 
 - Only `https:` origins, plus `http://localhost` and loopback addresses. Any
-  other scheme answers an empty list.
+  other origin answers an empty list, even while the app is locked.
 - A login matches when the host of its saved address equals the tab's host,
   or when one is `www.` plus the other. Nothing else: no parent domains, no
   similar names, no guessing from the label. Ports must match when the saved
@@ -88,7 +89,10 @@ matched on label and username.
 
 ```json
 { "id": "3", "type": "search", "query": "bank" }
+{ "id": "3", "type": "search", "logins": [ { "ref": "…", "label": "Bank", "username": "alex" } ] }
 ```
+
+The answer has no `origin`: search is not tied to a site.
 
 ### fill
 
@@ -104,6 +108,9 @@ uses when a secret is copied. Nothing is sent before that succeeds.
 When the login was not saved for this origin (it came from `search`), the
 confirmation says so in words ("This login was saved for bank.example, not
 for bank-login.example") and needs the same prompt; it is never skipped.
+
+The app waits 90 seconds for the confirmation, prompt included, then answers
+`cancelled`. The extension's own timeout for a fill is longer than that.
 
 The extension writes the two values into the fields and drops them. It never
 stores them, never sends them anywhere else and never logs them.
@@ -125,6 +132,9 @@ stores them, never sends them anywhere else and never logs them.
 | `busy` | another fill is waiting for confirmation |
 
 `message` is for the popup to show as it is; the extension adds nothing to it.
+A request too large or too malformed to read an `id` from is answered with
+`"id": ""`. The host's `app-not-running` also covers the app running with its
+Browser extension setting off: the pipe does not exist then either.
 
 ## Versions
 
