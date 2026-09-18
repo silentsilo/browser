@@ -12,6 +12,13 @@ every tab, and an extension is one more thing in it. The only way to make a
 compromised extension harmless is to make sure there is nothing in it worth
 taking.
 
+**The extension reaches passwords only.** It can ask for logins (label,
+username, the site they were saved for) and, after a confirmed fill, one
+password. It cannot list, read or name files, folders, attachments, notes,
+one-time codes or passkeys. The desktop app enforces this: the handlers that
+answer the extension read password entries through their own narrow
+function, with no path to the file store at all.
+
 Every alternative was ruled out for that reason:
 
 - Unlocking the silo in the extension, the way most password managers do,
