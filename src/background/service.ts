@@ -1,4 +1,4 @@
-import type { FillResult, SearchResult, View } from "../shared/messages";
+import { queryTooShort, type FillResult, type SearchResult, type View } from "../shared/messages";
 import type { FillArgs, FillResult as PageResult } from "../page/fill-page";
 import { ClientError, type NativeClient } from "./native-client";
 import { fillableOrigin, siteName } from "./origin";
@@ -32,7 +32,8 @@ export const TEXT = {
   // One per error code the app sends. The app's own `message` is never shown.
   unknownRef: "That login is out of date. Close this and open it again.",
   cancelled: "The fill was not confirmed in SilentSilo. Nothing was filled.",
-  busy: "Another fill is waiting for confirmation in SilentSilo. Confirm or cancel it there first.",
+  // Another fill waiting, too many requests, or the pause after a declined fill.
+  busy: "SilentSilo is busy. Try again in a few seconds.",
   noAuthenticator:
     "This silo has no security key or Windows Hello set up, so SilentSilo cannot confirm a fill. Add one in SilentSilo, then try again.",
   badRequest: "SilentSilo refused the request. If this keeps happening, update SilentSilo and this extension.",
@@ -83,7 +84,7 @@ export class Service {
 
   async search(query: string): Promise<SearchResult> {
     const trimmed = query.trim().slice(0, MAX_QUERY_LENGTH);
-    if (!trimmed) return { state: "results", logins: [] };
+    if (queryTooShort(trimmed)) return { state: "results", logins: [] };
     try {
       const answer = await this.deps.client.request({ type: "search", query: trimmed }, QUICK_TIMEOUT_MS);
       const logins = readLogins(answer.logins);

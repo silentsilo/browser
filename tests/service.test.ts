@@ -110,7 +110,7 @@ describe("search", () => {
     const { service } = setup({
       search: { logins: [{ ref: "r1", label: "Bank", username: "", site: "bank.example" }, { ref: "r2", label: "X" }] },
     });
-    expect(await service.search("b")).toEqual({
+    expect(await service.search("ba")).toEqual({
       state: "results",
       logins: [
         { ref: "r1", label: "Bank", username: "", site: "bank.example" },
@@ -123,6 +123,22 @@ describe("search", () => {
     const { service, requests } = setup({});
     expect(await service.search("   ")).toEqual({ state: "results", logins: [] });
     expect(requests).toHaveLength(0);
+  });
+
+  it("sends nothing under two characters, counted after trimming", async () => {
+    const { service, requests } = setup({ search: { logins: [] } });
+    expect(await service.search(" b ")).toEqual({ state: "results", logins: [] });
+    // One character, two UTF-16 units.
+    expect(await service.search(String.fromCodePoint(0x1f511))).toEqual({ state: "results", logins: [] });
+    expect(requests).toHaveLength(0);
+    await service.search("ba");
+    expect(requests).toEqual([{ type: "search", query: "ba" }]);
+  });
+
+  it("shows busy in general terms", async () => {
+    const { service } = setup({ search: new ClientError("busy") });
+    expect(await service.search("bank")).toEqual({ state: "error", message: TEXT.busy });
+    expect(TEXT.busy).toBe("SilentSilo is busy. Try again in a few seconds.");
   });
 });
 

@@ -74,8 +74,13 @@ the tab (`chrome.tabs`), never from the page.
   other origin answers an empty list, even while the app is locked.
 - A login matches when the host of its saved address equals the tab's host,
   or when one is `www.` plus the other. Nothing else: no parent domains, no
-  similar names, no guessing from the label. Ports must match when the saved
-  address has one.
+  similar names, no guessing from the label.
+- Ports must be equal. A saved address without a port means its scheme's
+  default port (443, or 80 for `http://`), never any port. A saved `http://`
+  address also matches the same host over https on 443. On `localhost` and
+  loopback addresses, where each port is another program, the port must be
+  written the same in both: a saved `localhost` matches only a tab without a
+  port.
 - `ref` is opaque, valid only while this silo stays unlocked, and useless
   outside a `fill`.
 - No passwords, no notes, no TOTP secrets. A username is shown so a person
@@ -85,7 +90,9 @@ the tab (`chrome.tabs`), never from the page.
 
 Asked only when the person types in the popup, because nothing matched or
 they want another login. Same answer shape as `logins`, at most 20 results,
-matched on label and username.
+matched on label and username. A query shorter than two characters, counted
+after trimming, answers an empty list; the extension does not send one, and
+the popup says "Type at least two characters".
 
 ```json
 { "id": "3", "type": "search", "query": "bank" }
@@ -134,13 +141,13 @@ Copies may stay in the browser's memory until garbage collection.
 
 | code | meaning |
 |---|---|
-| `app-not-running` | answered by the host: nothing listens on the pipe |
+| `app-not-running` | answered by the host: nothing listens on the pipe, or the pipe is not the real app's (another user's, or served by another program) |
 | `locked` | no silo is unlocked |
 | `no-silo` | the app has no silo yet |
 | `unknown-ref` | the ref is stale (the silo locked, or was switched) |
 | `cancelled` | the person declined or the prompt timed out |
 | `bad-request` | malformed, too large, unknown type, disallowed origin |
-| `busy` | another fill is waiting for confirmation |
+| `busy` | another fill is waiting for confirmation, too many requests (any of `logins`, `search`, `fill`), or a fill was declined or timed out in the last few seconds |
 | `no-authenticator` | the silo has no security key or Windows Hello set up, so no fill can be confirmed |
 
 `message` is informational, for logs and debugging. The extension does not
@@ -152,6 +159,14 @@ phish.
 A request too large or too malformed to read an `id` from is answered with
 `"id": ""`. The host's `app-not-running` also covers the app running with its
 Browser extension setting off: the pipe does not exist then either.
+
+The popup shows `busy` as "SilentSilo is busy. Try again in a few seconds.",
+whatever the cause, and from any request.
+
+A host started by anything other than Chrome or Edge exits before it reads
+a message. The extension sees only the port closing, and shows it like a
+host that found no app: SilentSilo is not running. A host the browser cannot
+find, or that does not list this extension, is shown as not installed.
 
 ## Versions
 

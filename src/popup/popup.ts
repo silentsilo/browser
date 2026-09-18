@@ -1,7 +1,14 @@
 // The popup: shows what the service worker answers and sends back the
 // person's choice. It never sees a password.
 
-import type { FillResult, LoginSummary, PopupRequest, SearchResult, View } from "../shared/messages";
+import {
+  queryTooShort,
+  type FillResult,
+  type LoginSummary,
+  type PopupRequest,
+  type SearchResult,
+  type View,
+} from "../shared/messages";
 
 const root = document.getElementById("app") as HTMLElement;
 let tabId = -1;
@@ -190,8 +197,17 @@ function renderSearch(silo: string | undefined, notice?: string): void {
         results.replaceChildren();
         return;
       }
+      if (queryTooShort(query)) {
+        results.replaceChildren(el("p", "muted", "Type at least two characters"));
+        return;
+      }
       const answer = await ask<SearchResult>({ kind: "search", tabId, query });
       if (mine !== latest) return;
+      // A refusal the person can wait out (busy) stays under the search box.
+      if (answer.state === "error") {
+        results.replaceChildren(el("p", "muted", answer.message));
+        return;
+      }
       if (answer.state !== "results") {
         render(answer);
         return;

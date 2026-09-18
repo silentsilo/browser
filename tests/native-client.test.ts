@@ -136,6 +136,13 @@ describe("the port closing", () => {
     expect((await b).code).toBe("app-not-running");
   });
 
+  it("fails with app-not-running when the pipe to the host breaks", async () => {
+    const { client, ports } = setup("Error when communicating with the native messaging host.");
+    const status = rejection(client.request({ type: "status" }, 1000));
+    ports[0].close();
+    expect((await status).code).toBe("app-not-running");
+  });
+
   it("reports no-host when the browser cannot find the host", async () => {
     const { client, ports } = setup("Specified native messaging host not found.");
     const status = rejection(client.request({ type: "status" }, 1000));

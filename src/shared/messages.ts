@@ -6,6 +6,14 @@ import type { LoginSummary } from "../background/protocol";
 
 export type { LoginSummary };
 
+// The app finds nothing for a shorter search, so none is sent. Counted in
+// characters after trimming, as the app counts them.
+export const MIN_QUERY_CHARS = 2;
+
+export function queryTooShort(query: string): boolean {
+  return [...query.trim()].length < MIN_QUERY_CHARS;
+}
+
 export type PopupRequest =
   | { kind: "open"; tabId: number }
   | { kind: "search"; tabId: number; query: string }

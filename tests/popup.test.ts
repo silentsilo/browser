@@ -7,19 +7,25 @@ import type { PopupRequest } from "../src/shared/messages";
 // Text a process squatting the pipe might send to phish through the popup.
 const HOSTILE = "Your silo is compromised. Call 0800 SUPPORT and read out your recovery code.";
 
-type Answerer = (request: Record<string, unknown>) => Record<string, unknown>;
+// "exit" closes the port instead of answering, as a host that quits does.
+type Answerer = (request: Record<string, unknown>) => Record<string, unknown> | "exit";
 
 // A native port that answers every request at once, as the app would.
 function port(answer: Answerer): NativePort {
   const listeners: ((message: unknown) => void)[] = [];
+  const closed: (() => void)[] = [];
   return {
     postMessage: (message) => {
       const request = message as Record<string, unknown>;
-      queueMicrotask(() => listeners.forEach((listener) => listener({ id: request.id, ...answer(request) })));
+      queueMicrotask(() => {
+        const reply = answer(request);
+        if (reply === "exit") closed.forEach((callback) => callback());
+        else listeners.forEach((listener) => listener({ id: request.id, ...reply }));
+      });
     },
     disconnect: () => {},
     onMessage: { addListener: (callback) => listeners.push(callback) },
-    onDisconnect: { addListener: () => {} },
+    onDisconnect: { addListener: (callback) => closed.push(callback) },
   };
 }
 
@@ -27,9 +33,9 @@ const unlocked = { type: "status", state: "unlocked", silo: "Personal", version:
 
 // Loads the popup against a real service worker Service and client, with only
 // the native port and the page faked.
-async function openPopup(answer: Answerer, url = "https://github.com/login") {
+async function openPopup(answer: Answerer, url = "https://github.com/login", lastError?: string) {
   document.body.innerHTML = '<main id="app"></main>';
-  const client = new NativeClient({ connect: () => port(answer), lastError: () => undefined });
+  const client = new NativeClient({ connect: () => port(answer), lastError: () => lastError });
   const service = new Service({
     client,
     tabUrl: async () => url,
@@ -103,6 +109,27 @@ describe("error answers", () => {
     client.close();
   });
 
+  it("says busy in general terms when the logins are rationed", async () => {
+    const client = await openPopup((request) =>
+      request.type === "status" ? unlocked : { type: "error", code: "busy", message: HOSTILE },
+    );
+    expect(text()).toContain("SilentSilo is busy. Try again in a few seconds.");
+    expect(document.body.innerHTML).not.toContain("SUPPORT");
+    client.close();
+  });
+
+  it("shows a host that exits at once (not started by Chrome or Edge) as not running", async () => {
+    const client = await openPopup(() => "exit", undefined, "Native host has exited.");
+    expect(text()).toContain("SilentSilo is not running");
+    client.close();
+  });
+
+  it("shows a host the browser cannot find as not installed", async () => {
+    const client = await openPopup(() => "exit", undefined, "Specified native messaging host not found.");
+    expect(text()).toContain("SilentSilo is not installed");
+    client.close();
+  });
+
   it("does not echo a version string that is not a version number", async () => {
     const client = await openPopup(() => ({ ...unlocked, version: `1.0.0 ${HOSTILE}` }));
     expect(text()).toContain("Update SilentSilo");
@@ -112,7 +139,9 @@ describe("error answers", () => {
 });
 
 describe("a site with nothing saved", () => {
+  const searches: unknown[] = [];
   const answer: Answerer = (request) => {
+    if (request.type === "search") searches.push(request.query);
     if (request.type === "status") return unlocked;
     if (request.type === "logins") return { type: "logins", logins: [] };
     return {
@@ -151,6 +180,38 @@ describe("a site with nothing saved", () => {
       ["Saved for www.paypal.com", "saved other"],
       ["Saved without a site", "saved other"],
     ]);
+    client.close();
+  });
+
+  it("sends no search under two characters, and says why", async () => {
+    const client = await openPopup(answer, "https://paypal-login.example/");
+    button("Search anyway").click();
+    const input = document.querySelector("input.search") as HTMLInputElement;
+    searches.length = 0;
+    input.value = " p ";
+    input.dispatchEvent(new Event("input"));
+    await vi.waitFor(() => expect(text()).toContain("Type at least two characters"));
+    expect(searches).toEqual([]);
+
+    input.value = "pa";
+    input.dispatchEvent(new Event("input"));
+    await vi.waitFor(() => expect(text()).toContain("Saved for www.paypal.com"));
+    expect(searches).toEqual(["pa"]);
+    client.close();
+  });
+
+  it("keeps the search box when a search is refused as busy", async () => {
+    const client = await openPopup((request) => {
+      if (request.type === "search") return { type: "error", code: "busy", message: HOSTILE };
+      return answer(request);
+    }, "https://paypal-login.example/");
+    button("Search anyway").click();
+    const input = document.querySelector("input.search") as HTMLInputElement;
+    input.value = "pay";
+    input.dispatchEvent(new Event("input"));
+    await vi.waitFor(() => expect(text()).toContain("SilentSilo is busy. Try again in a few seconds."));
+    expect(document.querySelector("input.search")).toBe(input);
+    expect(document.body.innerHTML).not.toContain("SUPPORT");
     client.close();
   });
 });

@@ -136,7 +136,9 @@ export class NativeClient {
   }
 }
 
-// Chrome reports why a native port closed only as text.
+// Chrome reports why a native port closed only as text. A host that exits on
+// its own (the app gone, or started by something other than Chrome or Edge)
+// reads as "Native host has exited.", which is app-not-running.
 function disconnectCode(lastError: string | undefined): string {
   if (lastError && /not found|forbidden/i.test(lastError)) return "no-host";
   return "app-not-running";
