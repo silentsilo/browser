@@ -14,7 +14,8 @@ list of logins. When you ask it to fill a page, it sends the page's origin to
 the desktop app over the browser's native messaging channel, the app looks
 up the logins saved for exactly that site, and you confirm the fill in the
 app with Windows Hello or your security key. The extension then writes the
-username and password into the fields you are looking at, and forgets them.
+username and password into the fields you are looking at. It does not keep
+or store them.
 
 So a page that manages to talk to the extension can ask for a fill, which
 you see and confirm or refuse. It cannot read anything, because there is
@@ -59,9 +60,11 @@ npm run package    # dist/silentsilo-chrome-<version>.zip, for the store
 committed, so a build does not need it.
 
 The development build carries a public key in its manifest, so the unpacked
-extension always gets the same id, `acgmibddhpnmaegpegjcibekcnihpfic`, which
-the desktop app's native host allows. The store build leaves the key out;
-the store assigns its own id.
+extension always gets the same id, `acgmibddhpnmaegpegjcibekcnihpfic`. The
+key is public, so anyone can build an extension with that id: only debug
+builds of the desktop app's native host accept it, never a release. The
+store build leaves the key out, and `npm run package` refuses to build if
+one is there. The store assigns its own id.
 
 ## Load it unpacked
 

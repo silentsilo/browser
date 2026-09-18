@@ -5,10 +5,13 @@ described here updates this page in the same commit.
 
 ## The one rule
 
-**The extension holds nothing.** No key, no password, no list of logins, no
-cache of any of them, not even for a second longer than a fill takes. The
-browser is the most attacked program on the computer, with a hostile page in
-every tab, and an extension is one more thing in it. The only way to make a
+**The extension holds nothing.** No key, no list of logins, no cache of
+any of them. The one password it receives for a fill it writes into the
+page and then drops: it does not keep or store it, and never sends it
+anywhere else. Copies can stay in the browser's memory until the garbage
+collector reclaims them, because JavaScript gives no way to wipe a string.
+The browser is the most attacked program on the computer, with a hostile
+page in every tab, and an extension is one more thing in it. The only way to make a
 compromised extension harmless is to make sure there is nothing in it worth
 taking.
 
@@ -42,8 +45,10 @@ page  <->  extension (content script + popup)  <->  desktop app (native messagin
   choice asks for one fill.
 - **The desktop app** answers. It owns the silo, decides what matches, asks
   Windows Hello or the security key, and hands over one login for one fill.
-  The native messaging host is part of the app, in `silentsilo-shell`, and is
-  registered for the extension's id alone.
+- **The native messaging host** sits between the browser and the app. It is
+  a separate small program, `silentsilo-browser-host` (its own crate in the
+  desktop repository), installed beside the app. The browser starts it; it
+  relays messages to the running app over a named pipe and decides nothing.
 
 ## Matching
 
@@ -62,18 +67,45 @@ confirmation says again when that is not the site being filled.
 ## The channel
 
 Native messaging, not a local HTTP port. A port would be reachable by every
-program on the computer and every page in every browser; the browser's
-native messaging channel is opened by the browser itself, only for the
-extension id named in the host's manifest, and the app can tell which
-extension is talking. The host manifest is written by the desktop installer,
-under the current user, and removed on uninstall.
+program on the computer and every page in every browser. The host manifest
+is written by the desktop installer, under the current user, and removed on
+uninstall.
 
-Messages carry the origin, a request id and, on the way back, labels or one
-login. The app refuses anything from an origin the browser did not report
-itself, and it refuses when no silo is unlocked. An error answer carries a
-code; the popup shows its own text for each code and never the words that
-came with it, so nothing on the other end of the pipe can write into the
-extension's interface.
+What is actually checked, in the order a message meets it:
+
+1. **The browser** starts the host only for an extension id listed in the
+   host manifest's `allowed_origins`. Pages cannot open the channel.
+2. **The host** reads the calling extension's origin from its first
+   argument and refuses any id not compiled into it, and refuses to run when
+   its parent process is not a browser.
+3. **The host** checks that the pipe server is the real SilentSilo app
+   before it sends anything.
+4. **The app** checks that the pipe client is the signed host binary.
+5. **The person** confirms every fill in the app, with Windows Hello or the
+   security key, on a prompt that names the site and the login.
+
+The app cannot know which extension is talking or which page a request came
+from. It relies on the checks above for that, and the origin in a request is
+the one the extension read from `chrome.tabs`. Messages carry the origin, a
+request id and, on the way back, labels or one login. The app refuses when
+no silo is unlocked. An error answer carries a code; the popup shows its own
+text for each code and never the words that came with it, so nothing on the
+other end of the pipe can write into the extension's interface.
+
+## What this does not protect against
+
+- **A program already running as the same Windows user.** It can drive the
+  browser, or the programs between it and the app, and ask for fills. Each
+  one still needs the person to confirm it in the app, so it gets a password
+  only if the person confirms a prompt they did not start.
+- **Replaced files.** The install is per user, so a program running as that
+  user can also replace files the user owns, the host and its manifest
+  included. Chrome does not check the host's signature before starting it;
+  the checks above are what stands in the way, and a program that can
+  rewrite the app itself is past all of them.
+- **Confirming without reading.** The prompt names the site and says when a
+  login was saved for another one. A person who confirms every prompt
+  without reading it gives that protection away.
 
 ## Confirmation
 

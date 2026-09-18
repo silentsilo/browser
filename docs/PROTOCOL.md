@@ -122,8 +122,9 @@ for bank-login.example") and needs the same prompt; it is never skipped.
 The app waits 90 seconds for the confirmation, prompt included, then answers
 `cancelled`. The extension's own timeout for a fill is longer than that.
 
-The extension writes the two values into the fields and drops them. It never
-stores them, never sends them anywhere else and never logs them.
+The extension writes the two values into the fields and drops them. It does
+not keep or store them, never sends them anywhere else and never logs them.
+Copies may stay in the browser's memory until garbage collection.
 
 ### Errors
 
