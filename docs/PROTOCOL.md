@@ -194,8 +194,8 @@ Browser extension setting off: the pipe does not exist then either.
 The popup shows `busy` as "SilentSilo is busy. Try again in a few seconds.",
 whatever the cause, and from any request.
 
-A host started by anything other than Chrome or Edge exits before it reads
-a message. The extension sees only the port closing, and shows it like a
+A host started by anything other than a supported browser exits before it
+reads a message. The extension sees only the port closing, and shows it like a
 host that found no app: SilentSilo is not running. A host the browser cannot
 find, or that does not list this extension, is shown as not installed.
 

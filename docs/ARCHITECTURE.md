@@ -129,7 +129,15 @@ inside the page, so each of them is a change to this document first.
 
 ## Browsers and stores
 
-Manifest V3 throughout. Chrome and Edge share one build and one native host
-manifest format; Firefox has its own manifest location and its own store,
-and comes second. Store review is a fact of life here: the listing says what
-the extension does in the terms above, and the source is this repository.
+Manifest V3 throughout, one source, two builds. Chrome and Edge share the
+Chrome build and one native host manifest format; Brave installs the same
+build from the Chrome Web Store. Firefox gets its own build, which differs
+only in the manifest: the background script runs as an event page instead of
+a service worker, and the id `browser@silentsilo.com` is fixed in
+`browser_specific_settings`. Firefox has its own native host manifest, with
+`allowed_extensions` in place of `allowed_origins`, and its own store. An
+open native port keeps a Firefox event page alive, as it keeps a Chrome
+service worker alive, so a fill waiting for confirmation is not cut off.
+Safari is not planned. Store review is a fact of life here: the listing says
+what the extension does in the terms above, and the source is this
+repository.
