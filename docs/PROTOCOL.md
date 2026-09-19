@@ -21,9 +21,18 @@ SilentSilo (the running desktop app)
   messages between the browser's stdio and the pipe, and exits when either
   side closes. It is a separate binary so the browser never starts the full
   app, with its webview, just to relay a message.
-- **The browser** starts the host with the calling extension's origin as its
-  first argument (`chrome-extension://<id>/`). The host refuses any id not
-  in its own list, before it opens the pipe.
+- **The browser** starts the host and names the calling extension in the
+  arguments. The host accepts Chrome, Edge, Brave and Firefox, and refuses
+  any id not in its own list for that browser, before it opens the pipe.
+  - Chrome and Edge pass the extension's origin first
+    (`chrome-extension://<id>/`). Brave has no registry key of its own: it
+    reads Chrome's, and installs the Chrome Web Store build, so it is let in
+    under the Chrome Web Store id.
+  - Firefox passes the path of the host manifest it read, then the add-on
+    id (`browser@silentsilo.com`). A Firefox id belongs to whoever first
+    submits it to addons.mozilla.org, so a release host trusts it only
+    after our AMO submission has claimed it. Until then only development
+    builds of the host accept it.
 - **The pipe** is created by the app with an ACL granting the current user
   only. When the app is not running, the host answers `app-not-running`
   itself and exits. It never starts the app.

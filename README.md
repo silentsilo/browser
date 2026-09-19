@@ -90,7 +90,11 @@ store build leaves the key out, and `npm run package` refuses to build if
 one is there. The store assigns its own id.
 
 Firefox does not use the key. Its id is fixed in the manifest, in both the
-development and the store build.
+development and the store build. The id is ours only once
+addons.mozilla.org holds it, so the first AMO submission (listed or
+unlisted; either one signs the add-on and reserves the id) must come before
+a desktop release trusts the id. Until then only debug builds of the native
+host accept it.
 
 ## Load it unpacked
 
