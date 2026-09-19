@@ -7,3 +7,6 @@ dist
 .idea/
 .vscode/
 private/
+
+# A developer's own key pins their unpacked id; never shared.
+manifest/chrome.dev.json

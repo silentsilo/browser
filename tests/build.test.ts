@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { mkdtempSync, readFileSync, writeFileSync, cpSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -32,8 +32,10 @@ describe("manifests", () => {
     expect(composeManifest(target, { store: true, version })).not.toHaveProperty("key");
   });
 
-  it("the chrome dev build carries the dev key, the firefox one does not", () => {
-    expect(composeManifest("chrome", { store: false, version })).toHaveProperty("key");
+  // The dev key is local, never committed, so a clean checkout builds without it.
+  it("the chrome dev build carries the local dev key only when there is one", () => {
+    const hasKey = existsSync("manifest/chrome.dev.json");
+    expect("key" in composeManifest("chrome", { store: false, version })).toBe(hasKey);
     expect(composeManifest("firefox", { store: false, version })).not.toHaveProperty("key");
   });
 

@@ -82,12 +82,15 @@ Android, and the minimum stays at 140 so Firefox ESR 140 can install it.
 `npm run icons` renders `icons/icon.svg` to the PNG sizes. The PNGs are
 committed, so a build does not need it.
 
-The development build carries a public key in its manifest, so the unpacked
-extension always gets the same id, `acgmibddhpnmaegpegjcibekcnihpfic`. The
-key is public, so anyone can build an extension with that id: only debug
-builds of the desktop app's native host accept it, never a release. The
-store build leaves the key out, and `npm run package` refuses to build if
-one is there. The store assigns its own id.
+A development build can pin its unpacked id with a key of your own in
+`manifest/chrome.dev.json` (`{ "key": "<base64 public key>" }`). That file
+is gitignored and never committed: whoever has the public key can build an
+extension with the same id, so each developer keeps their own. Debug builds
+of the desktop app's native host accept the ids listed in its
+`allowed-origins.dev.json`; a release never does. Without the file, the
+unpacked extension gets a random id. The store build leaves any key out, and
+`npm run package` refuses to build if one is there. The store assigns its
+own id.
 
 Firefox does not use the key. Its id is fixed in the manifest, in both the
 development and the store build. The id is ours only once
