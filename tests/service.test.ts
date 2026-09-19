@@ -142,6 +142,24 @@ describe("search", () => {
   });
 });
 
+describe("show", () => {
+  it("sends show and nothing else", async () => {
+    const { service, requests } = setup({ show: {} });
+    expect(await service.show()).toEqual({ state: "shown" });
+    expect(requests).toEqual([{ type: "show" }]);
+  });
+
+  it("shows busy in general terms", async () => {
+    const { service } = setup({ show: new ClientError("busy") });
+    expect(await service.show()).toEqual({ state: "error", message: TEXT.busy });
+  });
+
+  it("shows an app that stopped as not running", async () => {
+    const { service } = setup({ show: new ClientError("app-not-running") });
+    expect(await service.show()).toEqual({ state: "app-not-running" });
+  });
+});
+
 describe("fill", () => {
   it("checks the page, asks the app, then writes into the page for the same origin", async () => {
     const { service, requests, pageCalls } = setup({

@@ -1,4 +1,4 @@
-import { queryTooShort, type FillResult, type SearchResult, type View } from "../shared/messages";
+import { queryTooShort, type FillResult, type SearchResult, type ShowResult, type View } from "../shared/messages";
 import type { FillArgs, FillResult as PageResult } from "../page/fill-page";
 import { ClientError, type NativeClient } from "./native-client";
 import { fillableOrigin, siteName } from "./origin";
@@ -90,6 +90,17 @@ export class Service {
       const logins = readLogins(answer.logins);
       if (!logins) return { state: "error", message: TEXT.badAnswer };
       return { state: "results", logins: logins.slice(0, 20) };
+    } catch (error) {
+      return errorView(error);
+    }
+  }
+
+  // Asks the app to bring its window forward. The unlock happens there, and
+  // nothing continues here afterwards.
+  async show(): Promise<ShowResult> {
+    try {
+      await this.deps.client.request({ type: "show" }, QUICK_TIMEOUT_MS);
+      return { state: "shown" };
     } catch (error) {
       return errorView(error);
     }

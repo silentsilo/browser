@@ -7,6 +7,7 @@ import {
   type LoginSummary,
   type PopupRequest,
   type SearchResult,
+  type ShowResult,
   type View,
 } from "../shared/messages";
 
@@ -90,7 +91,44 @@ function render(view: View): void {
     return;
   }
   const [title, body] = STATE_TEXT[view.state];
-  show(header(), message(title, body, view.state === "unsupported-page" ? "plain" : "warn"));
+  const parts: Node[] = [header(), message(title, body, view.state === "unsupported-page" ? "plain" : "warn")];
+  if (view.state === "locked" || view.state === "no-silo") parts.push(openApp(view.state));
+  show(...parts);
+}
+
+const AFTER_SHOW: Record<"locked" | "no-silo", string> = {
+  locked: "Unlock your silo in the SilentSilo window, then click the extension again.",
+  "no-silo": "Create or open a silo in the SilentSilo window, then click the extension again.",
+};
+
+// Brings the app's window forward. The popup may close as it takes focus.
+function openApp(state: "locked" | "no-silo"): HTMLElement {
+  const box = el("div", "open-app");
+  const button = el("button", "action", "Open SilentSilo");
+  button.type = "button";
+  const note = el("p", "hint");
+  note.setAttribute("role", "status");
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    const answer = await ask<ShowResult>({ kind: "show" });
+    button.disabled = false;
+    if (!answer) {
+      note.textContent = "Something went wrong. Close this and try again.";
+      return;
+    }
+    if (answer.state === "shown") {
+      note.textContent = AFTER_SHOW[state];
+      return;
+    }
+    // Busy and the like stay under the button; anything else is a new state.
+    if (answer.state === "error") {
+      note.textContent = answer.message;
+      return;
+    }
+    render(answer);
+  });
+  box.append(button, note);
+  return box;
 }
 
 function renderReady(view: Extract<View, { state: "ready" }>): void {

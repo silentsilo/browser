@@ -42,6 +42,11 @@ one-time codes or passkeys, and the app answers any `type` not listed below
 with `bad-request`. Adding one would be a change to the threat model, which
 starts in ARCHITECTURE.md.
 
+`show` is the one request that is not about passwords. It is allowed because
+it reveals nothing: its answer carries no field beyond `id` and `type`, the
+same whatever state the app is in, and it cannot unlock anything or start a
+fill.
+
 ## Messages
 
 Every request carries `id` (a string the extension chooses, echoed in the
@@ -133,6 +138,32 @@ The extension writes the two values into the fields and drops them. It does
 not keep or store them, never sends them anywhere else and never logs them.
 Copies may stay in the browser's memory until garbage collection.
 
+### show
+
+Asks the app to bring its window to the front, for the person to unlock
+their silo there. The popup sends it from its "Open SilentSilo" button, shown
+when the silo is locked or the app has no silo yet.
+
+```json
+{ "id": "5", "type": "show" }
+{ "id": "5", "type": "show" }
+```
+
+The app unminimises, shows (it may be hidden in the notification area) and
+focuses its window. While the silo is locked the window is on its unlock
+screen, and the unlock happens there as it always does, with Windows Hello
+or the security key. While it is unlocked the window just comes forward. The
+window is not kept above other windows.
+
+The answer carries nothing but `id` and `type`. Nothing secret goes either
+way, and the extension does not wait for the unlock or continue with a fill
+afterwards: the person clicks the extension again.
+
+`show` counts against the same rations as `logins` and `search`, per
+connection and across all of them. On top of that the app answers `busy` to
+a `show` within 3 seconds of the last one it acted on, so a program running
+as the same user cannot keep raising the window.
+
 ### Errors
 
 ```json
@@ -147,7 +178,7 @@ Copies may stay in the browser's memory until garbage collection.
 | `unknown-ref` | the ref is stale (the silo locked, or was switched) |
 | `cancelled` | the person declined or the prompt timed out |
 | `bad-request` | malformed, too large, unknown type, disallowed origin |
-| `busy` | another fill is waiting for confirmation, too many requests (any of `logins`, `search`, `fill`), or a fill was declined or timed out in the last few seconds |
+| `busy` | another fill is waiting for confirmation, too many requests (any of `logins`, `search`, `show`, `fill`), a fill was declined or timed out in the last few seconds, or a `show` came within 3 seconds of the last one |
 | `no-authenticator` | the silo has no security key or Windows Hello set up, so no fill can be confirmed |
 
 `message` is informational, for logs and debugging. The extension does not

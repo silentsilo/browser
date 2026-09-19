@@ -17,7 +17,9 @@ taking.
 
 **The extension reaches passwords only.** It can ask for logins (label,
 username, the site they were saved for) and, after a confirmed fill, one
-password. It cannot list, read or name files, folders, attachments, notes,
+password. Beyond that it can ask the app to bring its window to the front
+(`show`), so a locked silo can be unlocked there; that answer carries
+nothing, and the unlock stays in the app. It cannot list, read or name files, folders, attachments, notes,
 one-time codes or passkeys. The desktop app enforces this: the handlers that
 answer the extension read password entries through their own narrow
 function, with no path to the file store at all.

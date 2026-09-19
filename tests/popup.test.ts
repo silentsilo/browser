@@ -53,6 +53,8 @@ async function openPopup(answer: Answerer, url = "https://github.com/login", las
       case "seen":
         service.seen(request.tabId);
         return null;
+      case "show":
+        return service.show();
     }
   };
   vi.stubGlobal("chrome", {
@@ -212,6 +214,45 @@ describe("a site with nothing saved", () => {
     await vi.waitFor(() => expect(text()).toContain("SilentSilo is busy. Try again in a few seconds."));
     expect(document.querySelector("input.search")).toBe(input);
     expect(document.body.innerHTML).not.toContain("SUPPORT");
+    client.close();
+  });
+});
+
+describe("Open SilentSilo", () => {
+  const locked = { type: "status", state: "locked", version: "1.2.0" };
+
+  it.each([
+    ["locked", locked, "Unlock your silo in the SilentSilo window"],
+    ["no-silo", { ...locked, state: "no-silo" }, "Create or open a silo in the SilentSilo window"],
+  ])("asks the app to show its window when %s, and nothing else", async (_name, status, after) => {
+    const sent: Record<string, unknown>[] = [];
+    const client = await openPopup((request) => {
+      sent.push(request);
+      return request.type === "status" ? status : { type: "show" };
+    });
+    sent.length = 0;
+    button("Open SilentSilo").click();
+    await vi.waitFor(() => expect(text()).toContain(after));
+    expect(sent).toEqual([{ id: expect.any(String), type: "show" }]);
+    client.close();
+  });
+
+  it("is not offered while the silo is unlocked", async () => {
+    const client = await openPopup((request) =>
+      request.type === "status" ? unlocked : { type: "logins", logins: [] },
+    );
+    expect([...document.querySelectorAll("button")].map((b) => b.textContent)).not.toContain("Open SilentSilo");
+    client.close();
+  });
+
+  it("shows a busy answer as the generic busy line, never the app's message", async () => {
+    const client = await openPopup((request) =>
+      request.type === "status" ? locked : { type: "error", code: "busy", message: HOSTILE },
+    );
+    button("Open SilentSilo").click();
+    await vi.waitFor(() => expect(text()).toContain(TEXT.busy));
+    expect(document.body.innerHTML).not.toContain("SUPPORT");
+    expect(button("Open SilentSilo").disabled).toBe(false);
     client.close();
   });
 });

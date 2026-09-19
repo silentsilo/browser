@@ -49,6 +49,8 @@ async function handle(message: PopupRequest): Promise<unknown> {
       return service.search(message.query);
     case "fill":
       return service.fill(message.tabId, message.ref);
+    case "show":
+      return service.show();
     case "seen":
       service.seen(message.tabId);
       return null;

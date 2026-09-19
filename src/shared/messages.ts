@@ -18,6 +18,8 @@ export type PopupRequest =
   | { kind: "open"; tabId: number }
   | { kind: "search"; tabId: number; query: string }
   | { kind: "fill"; tabId: number; ref: string }
+  // "Open SilentSilo": the app's window to the front, to unlock there.
+  | { kind: "show" }
   // The popup showed how the fill ended, so nothing needs to wait for it.
   | { kind: "seen"; tabId: number };
 
@@ -41,6 +43,8 @@ export type View =
     };
 
 export type SearchResult = { state: "results"; logins: LoginSummary[] } | Exclude<View, { state: "ready" }>;
+
+export type ShowResult = { state: "shown" } | Exclude<View, { state: "ready" }>;
 
 export type FillResult =
   | { ok: true; usernameFilled: boolean }

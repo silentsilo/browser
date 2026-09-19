@@ -21,7 +21,9 @@ export type Request =
   | { id: string; type: "status" }
   | { id: string; type: "logins"; origin: string }
   | { id: string; type: "search"; query: string }
-  | { id: string; type: "fill"; origin: string; ref: string };
+  | { id: string; type: "fill"; origin: string; ref: string }
+  // Brings the app's window forward. Asks for nothing and gets nothing.
+  | { id: string; type: "show" };
 
 // A request before the client gives it an id.
 export type RequestBody = Request extends infer R ? (R extends Request ? Omit<R, "id"> : never) : never;
@@ -45,6 +47,11 @@ export interface FillAnswer {
   type: "fill";
   username: string;
   password: string;
+}
+
+export interface ShowAnswer {
+  id: string;
+  type: "show";
 }
 
 export type ErrorCode =
