@@ -5,6 +5,7 @@ import type { NativePort } from "../src/background/native-client";
 export class FakePort implements NativePort {
   sent: Record<string, unknown>[] = [];
   disconnected = false;
+  error: { message?: string } | null = null;
   private messageListeners: ((message: unknown) => void)[] = [];
   private disconnectListeners: (() => void)[] = [];
 
@@ -24,9 +25,11 @@ export class FakePort implements NativePort {
     for (const listener of this.messageListeners) listener(message);
   }
 
-  // The browser closing the port, as when the host exits.
-  close(): void {
+  // The browser closing the port, as when the host exits. `error` is what
+  // Firefox puts on the port; Chrome reports through lastError instead.
+  close(error?: string): void {
     this.disconnected = true;
+    if (error !== undefined) this.error = { message: error };
     for (const listener of this.disconnectListeners) listener();
   }
 

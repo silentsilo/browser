@@ -157,6 +157,36 @@ describe("the port closing", () => {
     expect((await status).code).toBe("no-host");
   });
 
+  describe("in Firefox, which reports on the port and not in lastError", () => {
+    it("reports no-host when Firefox cannot find the host or it does not list this extension", async () => {
+      const { client, ports } = setup();
+      const status = rejection(client.request({ type: "status" }, 1000));
+      ports[0].close("No such native application com.silentsilo.desktop");
+      expect((await status).code).toBe("no-host");
+    });
+
+    it("reports app-not-running when the host exits, which Firefox reports without an error", async () => {
+      const { client, ports } = setup();
+      const status = rejection(client.request({ type: "status" }, 1000));
+      ports[0].close();
+      expect((await status).code).toBe("app-not-running");
+    });
+
+    it("reports app-not-running when the host fails to start", async () => {
+      const { client, ports } = setup();
+      const status = rejection(client.request({ type: "status" }, 1000));
+      ports[0].close("An unexpected error occurred");
+      expect((await status).code).toBe("app-not-running");
+    });
+
+    it("prefers the port's error over a stale lastError", async () => {
+      const { client, ports } = setup("Native host has exited.");
+      const status = rejection(client.request({ type: "status" }, 1000));
+      ports[0].close("No such native application com.silentsilo.desktop");
+      expect((await status).code).toBe("no-host");
+    });
+  });
+
   it("passes the host's own app-not-running answer through", async () => {
     const { client, ports } = setup();
     const status = rejection(client.request({ type: "status" }, 1000));

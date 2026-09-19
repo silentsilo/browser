@@ -1,5 +1,6 @@
-// The service worker: the only part of the extension that talks to the
-// desktop app. It keeps no state that outlives a fill.
+// The background script, a service worker in Chrome and an event page in
+// Firefox: the only part of the extension that talks to the desktop app. It
+// keeps no state that outlives a fill.
 
 import { fillPage, type FillArgs, type FillResult as PageResult } from "../page/fill-page";
 import type { PopupRequest } from "../shared/messages";

@@ -6,11 +6,14 @@ export interface NativePort {
   disconnect(): void;
   onMessage: { addListener(callback: (message: unknown) => void): void };
   onDisconnect: { addListener(callback: () => void): void };
+  // Why the port closed, in Firefox. Chrome leaves it out and sets
+  // runtime.lastError instead.
+  error?: { message?: string } | null;
 }
 
 export interface NativeClientOptions {
   connect: () => NativePort;
-  // chrome.runtime.lastError at the moment the port closed.
+  // chrome.runtime.lastError at the moment the port closed. Chrome only.
   lastError: () => string | undefined;
   // How long an unused port stays open before the client closes it.
   idleMs?: number;
@@ -91,7 +94,8 @@ export class NativeClient {
       if (this.port !== port) return;
       this.port = null;
       this.clearIdle();
-      this.failAll(new ClientError(disconnectCode(this.options.lastError())));
+      const reason = port.error?.message ?? this.options.lastError();
+      this.failAll(new ClientError(disconnectCode(reason)));
     });
     return port;
   }
@@ -136,10 +140,19 @@ export class NativeClient {
   }
 }
 
-// Chrome reports why a native port closed only as text. A host that exits on
-// its own (the app gone, or started by something other than Chrome or Edge)
-// reads as "Native host has exited.", which is app-not-running.
-function disconnectCode(lastError: string | undefined): string {
-  if (lastError && /not found|forbidden/i.test(lastError)) return "no-host";
+// The browser says why a native port closed only as text.
+//
+// Chrome: "Specified native messaging host not found." or "Access to the
+// specified native messaging host is forbidden." when the host is missing or
+// does not list this extension; "Native host has exited." when it quits.
+//
+// Firefox: "No such native application <name>" for both a missing host and
+// one that does not list this extension, and no error at all when the host
+// exits on its own.
+//
+// A host that exits on its own (the app gone, or started by something that is
+// not a browser) is app-not-running, as is any other failure.
+function disconnectCode(reason: string | undefined): string {
+  if (reason && /not found|forbidden|no such native application/i.test(reason)) return "no-host";
   return "app-not-running";
 }

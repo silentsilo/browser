@@ -120,7 +120,7 @@ describe("error answers", () => {
     client.close();
   });
 
-  it("shows a host that exits at once (not started by Chrome or Edge) as not running", async () => {
+  it("shows a host that exits at once (not started by a browser) as not running", async () => {
     const client = await openPopup(() => "exit", undefined, "Native host has exited.");
     expect(text()).toContain("SilentSilo is not running");
     client.close();

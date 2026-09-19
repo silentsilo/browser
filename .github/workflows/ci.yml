@@ -29,6 +29,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      # dist/chrome and dist/firefox.
       - run: npm run build
-      # The store zip, which refuses to carry the dev key.
+      # Both store zips, which refuse to carry the dev key.
       - run: npm run package
+      - run: npm run lint:firefox
