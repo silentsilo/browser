@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { NativeClient, type NativePort } from "../src/background/native-client";
 import { Service, TEXT } from "../src/background/service";
 import type { PopupRequest } from "../src/shared/messages";
+import { sameSite } from "../src/shared/site";
 
 // Text a process squatting the pipe might send to phish through the popup.
 const HOSTILE = "Your silo is compromised. Call 0800 SUPPORT and read out your recovery code.";
@@ -33,7 +34,14 @@ const unlocked = { type: "status", state: "unlocked", silo: "Personal", version:
 
 // Loads the popup against a real service worker Service and client, with only
 // the native port and the page faked.
-async function openPopup(answer: Answerer, url = "https://github.com/login", lastError?: string) {
+async function openPopup(
+  answer: Answerer,
+  url = "https://github.com/login",
+  lastError?: string,
+  // Kinds of popup message the background script fails to answer, as when
+  // it stopped in between: "undefined" answers nothing, "reject" throws.
+  lost: Partial<Record<PopupRequest["kind"], "undefined" | "reject">> = {},
+) {
   document.body.innerHTML = '<main id="app"></main>';
   const client = new NativeClient({ connect: () => port(answer), lastError: () => lastError });
   const service = new Service({
@@ -49,7 +57,7 @@ async function openPopup(answer: Answerer, url = "https://github.com/login", las
       case "search":
         return service.search(request.query);
       case "fill":
-        return service.fill(request.tabId, request.ref);
+        return service.fill(request.tabId, request.ref, request.origin);
       case "seen":
         service.seen(request.tabId);
         return null;
@@ -59,7 +67,13 @@ async function openPopup(answer: Answerer, url = "https://github.com/login", las
   };
   vi.stubGlobal("chrome", {
     tabs: { query: async () => [{ id: 7 }] },
-    runtime: { sendMessage: (request: PopupRequest) => handle(request) },
+    runtime: {
+      sendMessage: async (request: PopupRequest) => {
+        if (lost[request.kind] === "reject") throw new Error("Could not establish connection.");
+        if (lost[request.kind] === "undefined") return undefined;
+        return handle(request);
+      },
+    },
   });
   window.close = vi.fn();
   vi.resetModules();
@@ -120,15 +134,44 @@ describe("error answers", () => {
     client.close();
   });
 
-  it("shows a host that exits at once (not started by a browser) as not running", async () => {
+  it("shows a host that exits at once (not started by a browser) as not reachable", async () => {
     const client = await openPopup(() => "exit", undefined, "Native host has exited.");
-    expect(text()).toContain("SilentSilo is not running");
+    expect(text()).toContain("SilentSilo is not reachable");
     client.close();
   });
 
-  it("shows a host the browser cannot find as not installed", async () => {
+  it("names the setting when no app listens, which is also what the setting off looks like", async () => {
+    const client = await openPopup(() => ({ type: "error", code: "app-not-running", message: HOSTILE }));
+    expect(text()).toContain("SilentSilo is not reachable");
+    expect(text()).toContain("turn on Settings > Browser extension");
+    expect(document.body.innerHTML).not.toContain("SUPPORT");
+    client.close();
+  });
+
+  it("shows a host the browser cannot find as not installed, and suggests installing again", async () => {
     const client = await openPopup(() => "exit", undefined, "Specified native messaging host not found.");
     expect(text()).toContain("SilentSilo is not installed");
+    expect(text()).toContain("SilentSilo 1.2.0 or later");
+    expect(text()).toContain("run its installer again");
+    client.close();
+  });
+
+  it("points a silo without a key at Unlocking", async () => {
+    const client = await openPopup((request) => {
+      if (request.type === "status") return unlocked;
+      if (request.type === "logins") return { type: "logins", logins: [{ ref: "r1", label: "GitHub", username: "" }] };
+      return { type: "error", code: "no-authenticator", message: HOSTILE };
+    });
+    button("GitHub").click();
+    await vi.waitFor(() => expect(text()).toContain("Add one under Unlocking in SilentSilo"));
+    client.close();
+  });
+
+  it("names a login without a label", async () => {
+    const client = await openPopup((request) =>
+      request.type === "status" ? unlocked : { type: "logins", logins: [{ ref: "r1", label: "", username: "alex" }] },
+    );
+    expect(button("Untitled login")).toBeTruthy();
     client.close();
   });
 
@@ -223,7 +266,7 @@ describe("Open SilentSilo", () => {
 
   it.each([
     ["locked", locked, "Unlock your silo in the SilentSilo window"],
-    ["no-silo", { ...locked, state: "no-silo" }, "Create or open a silo in the SilentSilo window"],
+    ["no-silo", { ...locked, state: "no-silo" }, "Create a silo in the SilentSilo window, or set one up from backup storage"],
   ])("asks the app to show its window when %s, and nothing else", async (_name, status, after) => {
     const sent: Record<string, unknown>[] = [];
     const client = await openPopup((request) => {
@@ -254,5 +297,119 @@ describe("Open SilentSilo", () => {
     expect(document.body.innerHTML).not.toContain("SUPPORT");
     expect(button("Open SilentSilo").disabled).toBe(false);
     client.close();
+  });
+});
+
+describe("a background script that does not answer", () => {
+  const withLogin: Answerer = (request) => {
+    if (request.type === "status") return unlocked;
+    if (request.type === "logins") return { type: "logins", logins: [{ ref: "r1", label: "GitHub", username: "alex" }] };
+    return { type: "fill", username: "u", password: "p" };
+  };
+
+  it.each([["undefined" as const], ["reject" as const]])(
+    "a fill answered with %s does not leave the popup waiting",
+    async (how) => {
+      const client = await openPopup(withLogin, undefined, undefined, { fill: how });
+      button("GitHub").click();
+      await vi.waitFor(() => expect(text()).toContain("Something went wrong"));
+      expect(text()).not.toContain("Confirm in SilentSilo");
+      client.close();
+    },
+  );
+
+  it("a failed fill whose list cannot be reloaded still says what happened", async () => {
+    const lost: Partial<Record<PopupRequest["kind"], "undefined" | "reject">> = {};
+    const client = await openPopup(
+      (request) => (request.type === "fill" ? { type: "error", code: "cancelled" } : withLogin(request)),
+      undefined,
+      undefined,
+      lost,
+    );
+    // The reopen after the failure is the one that goes unanswered.
+    lost.open = "undefined";
+    button("GitHub").click();
+    await vi.waitFor(() => expect(text()).toContain(TEXT.cancelled));
+    expect(text()).not.toContain("Confirm in SilentSilo");
+    client.close();
+  });
+
+  it("a search answered with nothing says so under the search box", async () => {
+    const client = await openPopup(
+      (request) => (request.type === "logins" ? { type: "logins", logins: [] } : withLogin(request)),
+      undefined,
+      undefined,
+      { search: "undefined" },
+    );
+    button("Search anyway").click();
+    const input = document.querySelector("input.search") as HTMLInputElement;
+    input.value = "git";
+    input.dispatchEvent(new Event("input"));
+    await vi.waitFor(() => expect(text()).toContain("Something went wrong. Try again."));
+    expect(document.querySelector("input.search")).toBe(input);
+    client.close();
+  });
+});
+
+describe("a fill pinned to its list", () => {
+  it("goes nowhere when the tab moved to another site after the list was made", async () => {
+    const sent: string[] = [];
+    let url = "https://github.com/login";
+    document.body.innerHTML = '<main id="app"></main>';
+    const client = new NativeClient({
+      connect: () =>
+        port((request) => {
+          sent.push(String(request.type));
+          if (request.type === "status") return unlocked;
+          if (request.type === "logins") {
+            return { type: "logins", logins: [{ ref: "r1", label: "GitHub", username: "alex" }] };
+          }
+          return { type: "fill", username: "u", password: "p" };
+        }),
+      lastError: () => undefined,
+    });
+    const service = new Service({
+      client,
+      tabUrl: async () => url,
+      runInPage: async (_tab, args) => (args.fill ? { outcome: "filled", usernameFilled: true } : { outcome: "ready" }),
+      flag: () => {},
+    });
+    vi.stubGlobal("chrome", {
+      tabs: { query: async () => [{ id: 7 }] },
+      runtime: {
+        sendMessage: async (request: PopupRequest) => {
+          if (request.kind === "open") return service.open(request.tabId);
+          if (request.kind === "fill") return service.fill(request.tabId, request.ref, request.origin);
+          return null;
+        },
+      },
+    });
+    vi.resetModules();
+    await import("../src/popup/popup");
+    await vi.waitFor(() => expect(text()).toContain("GitHub"));
+
+    url = "https://github.evil.example/login";
+    button("GitHub").click();
+    await vi.waitFor(() => expect(text()).toContain(TEXT.navigated));
+    expect(sent).not.toContain("fill");
+    client.close();
+  });
+});
+
+describe("the colour of Saved for", () => {
+  it.each([
+    ["github.com", "github.com", true],
+    ["www.github.com", "github.com", true],
+    ["GitHub.com", "www.github.com", true],
+    ["example.com:8443", "example.com:8443", true],
+    ["example.com:8443", "example.com", false],
+    ["example.com", "example.com:8443", false],
+    ["localhost:3000", "localhost:4000", false],
+    ["[::1]:5000", "[::1]:5000", true],
+    ["[::1]", "[::1]:5000", false],
+    ["gist.github.com", "github.com", false],
+    ["", "github.com", false],
+  ])("%s on %s: same site %s", (saved, tab, same) => {
+    expect(sameSite(saved, tab)).toBe(same);
   });
 });

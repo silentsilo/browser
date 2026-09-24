@@ -41,6 +41,8 @@ function setup(answers: Partial<Record<RequestBody["type"], Answer>>, url = "htt
 }
 
 const unlocked = { state: "unlocked", silo: "Personal", version: "1.2.0" };
+// The origin the popup's list was built for.
+const GH = "https://github.com";
 const githubLogins = { logins: [{ ref: "r1", label: "GitHub", username: "alex@example.com" }] };
 
 describe("opening the popup", () => {
@@ -50,6 +52,7 @@ describe("opening the popup", () => {
     expect(requests).toEqual([{ type: "status" }, { type: "logins", origin: "https://github.com" }]);
     expect(view).toEqual({
       state: "ready",
+      origin: "https://github.com",
       site: "github.com",
       silo: "Personal",
       logins: githubLogins.logins,
@@ -165,7 +168,7 @@ describe("fill", () => {
     const { service, requests, pageCalls } = setup({
       fill: { username: "alex@example.com", password: "hunter2" },
     });
-    expect(await service.fill(3, "r1")).toEqual({ ok: true, usernameFilled: true });
+    expect(await service.fill(3, "r1", GH)).toEqual({ ok: true, usernameFilled: true });
     expect(requests).toEqual([{ type: "fill", origin: "https://github.com", ref: "r1" }]);
     expect(pageCalls).toEqual([
       { expectedOrigin: "https://github.com", fill: null },
@@ -175,27 +178,64 @@ describe("fill", () => {
 
   it("does not ask the app when the page has no password field", async () => {
     const { service, requests, setPage, flags } = setup({});
-    setPage(() => ({ outcome: "no-password", crossOriginFrame: false }));
-    expect(await service.fill(3, "r1")).toEqual({ ok: false, message: TEXT.noPassword });
+    setPage(() => ({ outcome: "no-password", frame: null }));
+    expect(await service.fill(3, "r1", GH)).toEqual({ ok: false, message: TEXT.noPassword });
     expect(requests).toHaveLength(0);
     expect(flags).toEqual([true]);
   });
 
   it("says so when the form is in a frame from another site", async () => {
     const { service, setPage } = setup({});
-    setPage(() => ({ outcome: "no-password", crossOriginFrame: true }));
-    expect(await service.fill(3, "r1")).toEqual({ ok: false, message: TEXT.crossOriginFrame });
+    setPage(() => ({ outcome: "no-password", frame: "other-site" }));
+    expect(await service.fill(3, "r1", GH)).toEqual({ ok: false, message: TEXT.crossOriginFrame });
+  });
+
+  it("says so when the form is in a frame of this site", async () => {
+    const { service, setPage } = setup({});
+    setPage(() => ({ outcome: "no-password", frame: "this-site" }));
+    expect(await service.fill(3, "r1", GH)).toEqual({ ok: false, message: TEXT.sameOriginFrame });
+  });
+
+  it("fills only the origin the list was built for", async () => {
+    const { service, requests, pageCalls } = setup({ fill: { username: "u", password: "p" } }, "https://evil.example/");
+    expect(await service.fill(3, "r1", GH)).toEqual({ ok: false, message: TEXT.navigated });
+    expect(requests).toHaveLength(0);
+    expect(pageCalls).toHaveLength(0);
+  });
+
+  it("says a fill on another tab is waiting, and does not ask the app", async () => {
+    let answer: (value: Record<string, unknown>) => void = () => {};
+    const request = vi.fn(
+      async () => new Promise<Record<string, unknown>>((resolve) => (answer = resolve)),
+    );
+    const service = new Service({
+      client: { request },
+      tabUrl: async () => "https://github.com/",
+      runInPage: async (_tab, args) => (args.fill ? { outcome: "filled", usernameFilled: true } : { outcome: "ready" }),
+      flag: () => {},
+    });
+    const first = service.fill(3, "r1", GH);
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+    expect(await service.fill(4, "r1", GH)).toEqual({ ok: false, message: TEXT.otherTabWaiting });
+    expect(request).toHaveBeenCalledTimes(1);
+    answer({ id: "1", type: "fill", username: "u", password: "p" });
+    expect(await first).toEqual({ ok: true, usernameFilled: true });
+  });
+
+  it("shows a failed read in its own words", async () => {
+    const { service } = setup({ fill: new ClientError("read-failed") });
+    expect(await service.fill(3, "r1", GH)).toMatchObject({ ok: false, message: TEXT.readFailed });
   });
 
   it("writes nothing when the tab navigated during the confirmation", async () => {
     const { service, setPage } = setup({ fill: { username: "u", password: "p" } });
     setPage((args) => (args.fill ? { outcome: "wrong-origin" } : { outcome: "ready" }));
-    expect(await service.fill(3, "r1")).toEqual({ ok: false, message: TEXT.navigated });
+    expect(await service.fill(3, "r1", GH)).toEqual({ ok: false, message: TEXT.navigated });
   });
 
   it("says in its own words that the person declined", async () => {
     const { service } = setup({ fill: new ClientError("cancelled") });
-    const result = await service.fill(3, "r1");
+    const result = await service.fill(3, "r1", GH);
     expect(result).toMatchObject({ ok: false, message: TEXT.cancelled });
   });
 
@@ -205,8 +245,36 @@ describe("fill", () => {
       logins: githubLogins,
       fill: new ClientError("cancelled"),
     });
-    await service.fill(3, "r1");
+    await service.fill(3, "r1", GH);
     expect(await service.open(3)).toMatchObject({ notice: TEXT.cancelled });
+    expect(await service.open(3)).toMatchObject({ notice: undefined });
+  });
+
+  it("never shows the outcome on another site, and drops it there", async () => {
+    let url = "https://github.com/login";
+    const service = new Service({
+      client: {
+        request: async (body: RequestBody) => {
+          if (body.type === "status") return { id: "1", type: "status", ...unlocked };
+          if (body.type === "logins") return { id: "2", type: "logins", logins: [] };
+          throw new ClientError("cancelled");
+        },
+      },
+      tabUrl: async () => url,
+      runInPage: async () => ({ outcome: "ready" }),
+      flag: () => {},
+    });
+    await service.fill(3, "r1", GH);
+    url = "https://gitlab.com/";
+    expect(await service.open(3)).toMatchObject({ notice: undefined });
+    url = "https://github.com/";
+    expect(await service.open(3)).toMatchObject({ notice: undefined });
+  });
+
+  it("forgets the outcome when its tab closes", async () => {
+    const { service } = setup({ status: unlocked, logins: githubLogins, fill: new ClientError("cancelled") });
+    await service.fill(3, "r1", GH);
+    service.forget(3);
     expect(await service.open(3)).toMatchObject({ notice: undefined });
   });
 
@@ -223,7 +291,7 @@ describe("fill", () => {
       runInPage: async (_tab, args) => (args.fill ? { outcome: "filled", usernameFilled: true } : { outcome: "ready" }),
       flag: () => {},
     });
-    const fill = service.fill(3, "r1");
+    const fill = service.fill(3, "r1", GH);
     await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
     expect(await service.open(3)).toMatchObject({ waiting: true });
     expect(await service.open(4)).toMatchObject({ waiting: false });
@@ -234,7 +302,7 @@ describe("fill", () => {
 
   it("rejects a fill answer without strings", async () => {
     const { service, pageCalls } = setup({ fill: { username: "u" } });
-    expect(await service.fill(3, "r1")).toEqual({ ok: false, message: TEXT.badAnswer });
+    expect(await service.fill(3, "r1", GH)).toEqual({ ok: false, message: TEXT.badAnswer });
     expect(pageCalls).toHaveLength(1);
   });
 });

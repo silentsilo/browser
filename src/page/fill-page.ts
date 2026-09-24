@@ -4,8 +4,10 @@
 //
 // It looks at the page's input fields and nothing else: their type, whether
 // they can be seen, and which form they belong to. It never reads what is
-// typed in them or any other text on the page. With `fill` set it writes the
-// two values and returns; without it, it only reports whether it could.
+// typed in them or any other text on the page. When the top frame has no
+// password field it checks whether a frame holds one, and fills nothing
+// there. With `fill` set it writes the two values and returns; without it,
+// it only reports whether it could.
 
 export interface FillArgs {
   // The origin the person confirmed. A page that navigated since gets nothing.
@@ -15,7 +17,8 @@ export interface FillArgs {
 
 export type FillResult =
   | { outcome: "wrong-origin" }
-  | { outcome: "no-password"; crossOriginFrame: boolean }
+  // `frame`: where a login form this function cannot reach seems to be.
+  | { outcome: "no-password"; frame: "this-site" | "other-site" | null }
   | { outcome: "ready" }
   | { outcome: "filled"; usernameFilled: boolean };
 
@@ -81,16 +84,32 @@ export function fillPage(args: FillArgs): FillResult {
   const password = passwords.find((input) => wants(input, "current-password")) ?? passwords[0];
 
   if (!password) {
-    const crossOriginFrame = [...document.querySelectorAll("iframe, frame")].some((frame) => {
-      const src = frame.getAttribute("src");
-      if (!src || !(frame instanceof HTMLElement) || !isVisible(frame)) return false;
+    // A frame this page can open (same origin, srcdoc, about:blank) is
+    // looked into for a password field only; one from another site is
+    // judged by its address.
+    let thisSite = false;
+    let otherSite = false;
+    for (const frame of document.querySelectorAll("iframe, frame")) {
+      if (!(frame instanceof HTMLElement) || !isVisible(frame)) continue;
+      let inner: Document | null;
       try {
-        return new URL(src, location.href).origin !== location.origin;
+        inner = (frame as HTMLIFrameElement).contentDocument;
       } catch {
-        return false;
+        inner = null;
       }
-    });
-    return { outcome: "no-password", crossOriginFrame };
+      if (inner?.querySelector("input[type=password]")) {
+        thisSite = true;
+        continue;
+      }
+      const src = frame.getAttribute("src");
+      if (!src) continue;
+      try {
+        if (new URL(src, location.href).origin !== location.origin) otherSite = true;
+      } catch {
+        // Not an address: nothing to say about it.
+      }
+    }
+    return { outcome: "no-password", frame: thisSite ? "this-site" : otherSite ? "other-site" : null };
   }
 
   // The text or email field before the password, in the same form, or before

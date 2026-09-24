@@ -3,7 +3,8 @@
 
 export const HOST_NAME = "com.silentsilo.desktop";
 
-// The lowest desktop version that speaks this protocol.
+// The lowest desktop version that speaks this protocol. The popup's texts
+// take it from here too.
 export const MIN_APP_VERSION = "1.2.0";
 
 export type SiloState = "unlocked" | "locked" | "no-silo";
@@ -62,7 +63,9 @@ export type ErrorCode =
   | "cancelled"
   | "bad-request"
   | "busy"
-  | "no-authenticator";
+  | "no-authenticator"
+  // Added later: an app before it answers `locked` instead.
+  | "read-failed";
 
 export interface ErrorAnswer {
   id: string;

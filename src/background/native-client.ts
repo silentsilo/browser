@@ -111,6 +111,12 @@ export class NativeClient {
     if (answer.type === "error") {
       const code = typeof answer.code === "string" ? answer.code : "bad-answer";
       waiting.reject(new ClientError(code));
+      // A host with no app keeps answering this and never exits, so only a
+      // new port can find the app once it is up.
+      if (code === "app-not-running") {
+        this.close();
+        return;
+      }
     } else if (answer.type !== waiting.expect) {
       waiting.reject(new ClientError("bad-answer"));
     } else {

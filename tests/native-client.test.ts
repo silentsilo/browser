@@ -195,6 +195,34 @@ describe("the port closing", () => {
     expect((await status).code).toBe("app-not-running");
   });
 
+  it("closes the port after the host's app-not-running, and the next request opens a new one", async () => {
+    const { client, ports } = setup();
+    const first = rejection(client.request({ type: "status" }, 1000));
+    const other = rejection(client.request({ type: "logins", origin: "https://github.com" }, 1000));
+    ports[0].answer({ id: "1", type: "error", code: "app-not-running", message: "SilentSilo is not running." });
+    expect((await first).code).toBe("app-not-running");
+    expect((await other).code).toBe("app-not-running");
+    expect(ports[0].disconnected).toBe(true);
+
+    const second = client.request({ type: "status" }, 1000);
+    expect(ports).toHaveLength(2);
+    expect(ports[1].last()).toEqual({ id: "3", type: "status" });
+    ports[1].answer({ id: "3", type: "status", state: "unlocked", version: "1.2.0" });
+    await expect(second).resolves.toMatchObject({ state: "unlocked" });
+    // A late answer on the old port reaches nothing.
+    ports[0].answer({ id: "3", type: "status", state: "locked", version: "1.2.0" });
+  });
+
+  it("keeps the port after any other error answer", async () => {
+    const { client, ports } = setup();
+    const status = rejection(client.request({ type: "status" }, 1000));
+    ports[0].answer({ id: "1", type: "error", code: "busy" });
+    expect((await status).code).toBe("busy");
+    expect(ports[0].disconnected).toBe(false);
+    void client.request({ type: "status" }, 1000);
+    expect(ports).toHaveLength(1);
+  });
+
   it("opens a new port for the next request", async () => {
     const { client, ports } = setup();
     const first = rejection(client.request({ type: "status" }, 1000));

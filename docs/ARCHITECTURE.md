@@ -36,15 +36,19 @@ Every alternative was ruled out for that reason:
 ## The three parties
 
 ```
-page  <->  extension (content script + popup)  <->  desktop app (native messaging host)
+page  <->  extension (popup + background script)  <->  desktop app (native messaging host)
 ```
 
 - **The page** gets exactly one thing: a username and a password written into
   two fields, after the user confirmed. It never gets a list, a message or a
-  script beyond that write.
+  script beyond that write. There is no content script: the one function
+  that runs in the page is injected on the user's click, through
+  `activeTab`, and only in the top frame.
 - **The extension** asks and writes. It sends the page's origin to the app,
   shows what the app answers (labels only, never secrets), and on the user's
-  choice asks for one fill.
+  choice asks for one fill. The background script keeps, per tab, how the
+  last fill ended while the popup was closed, with the origin it was for.
+  That is never a login, and it goes when the tab closes.
 - **The desktop app** answers. It owns the silo, decides what matches, asks
   Windows Hello or the security key, and hands over one login for one fill.
 - **The native messaging host** sits between the browser and the app. It is
@@ -66,6 +70,19 @@ think, and the search box appears only after a click on "Search anyway".
 Each search result names the site it was saved for, and the app's
 confirmation says again when that is not the site being filled.
 
+A fill goes to the origin the list was built for, and nowhere else. The
+popup keeps that origin and sends it with the fill; the background script
+refuses the fill, before it asks the app, when the tab has since moved to
+another origin. The page function checks the origin a second time just
+before it writes, since the tab can move while the person confirms.
+
+To build the list, the app currently decrypts every password entry of the
+open silo in its own memory on each `logins`, `search` and `fill`, keeps
+the label, username and saved address, and wipes the rest at once. The
+extension never receives those passwords, but they do pass through the
+app's memory on every lookup. A listing that decrypts only that metadata
+needs a change in core; that is a follow-up.
+
 ## The channel
 
 Native messaging, not a local HTTP port. A port would be reachable by every
@@ -83,8 +100,8 @@ What is actually checked, in the order a message meets it:
 3. **The host** checks that the pipe server is the real SilentSilo app
    before it sends anything.
 4. **The app** checks that the pipe client is the signed host binary.
-5. **The person** confirms every fill in the app, with Windows Hello or the
-   security key, on a prompt that names the site and the login.
+5. **The person** confirms every fill in the app, on a dialog that names the
+   site and the login, then with Windows Hello or the security key.
 
 The app cannot know which extension is talking or which page a request came
 from. It relies on the checks above for that, and the origin in a request is
@@ -111,10 +128,16 @@ other end of the pipe can write into the extension's interface.
 
 ## Confirmation
 
-Every fill is confirmed in the app, not in the extension: the prompt is the
-same one the app uses when a secret is copied, and it names the site. A
-confirmation dialog drawn by the extension would be drawn inside the
-browser, which is what we do not trust.
+Every fill is confirmed in the app, not in the extension. The app brings
+its window forward and shows its own dialog (`BrowserFillDialog` in the
+desktop repository), naming the site and the login, and saying in words
+when the login was saved for another site. Its Fill button runs the same
+Windows Hello or security key check the app uses to reveal a protected
+entry, whatever that entry's own setting, with no grace period. Only when
+that check passes does the app read the password and send it. After a
+confirmed fill the app puts its window back the way it was when it was
+hidden or minimised before. A confirmation drawn by the extension would be
+drawn inside the browser, which is what we do not trust.
 
 ## What the first version does not do
 
@@ -129,15 +152,28 @@ inside the page, so each of them is a change to this document first.
 
 ## Browsers and stores
 
-Manifest V3 throughout, one source, two builds. Chrome and Edge share the
+Manifest V3 throughout, one source, two builds. The desktop side (the
+native host and the pipe) exists on Windows only for now, so the extension
+does too, whatever browser it runs in. Chrome and Edge share the
 Chrome build and one native host manifest format; Brave installs the same
 build from the Chrome Web Store. Firefox gets its own build, which differs
 only in the manifest: the background script runs as an event page instead of
 a service worker, and the id `browser@silentsilo.com` is fixed in
-`browser_specific_settings`. Firefox has its own native host manifest, with
-`allowed_extensions` in place of `allowed_origins`, and its own store. An
-open native port keeps a Firefox event page alive, as it keeps a Chrome
-service worker alive, so a fill waiting for confirmation is not cut off.
-Safari is not planned. Store review is a fact of life here: the listing says
-what the extension does in the terms above, and the source is this
-repository.
+`browser_specific_settings`. Our addons.mozilla.org submission of 20
+September 2026 claimed that id, so release builds of the desktop host
+accept it. Firefox has its own native host manifest, with
+`allowed_extensions` (add-on ids) in place of `allowed_origins`
+(`chrome-extension://` origins), and starts the host with the manifest's
+path and the add-on id as arguments, where Chrome and Edge pass the
+extension's origin. An open native port keeps a Chrome service worker
+alive, and should keep a Firefox event page alive the same way, so a fill
+waiting for confirmation is not cut off; a Firefox fill that waits longer
+than 30 seconds is still to be checked on a real machine. Safari is not
+planned. Store review is a fact of life here: the listing says what the
+extension does in the terms above, and the source is this repository.
+
+The desktop host does not exit when no app listens: it answers every
+request with `app-not-running` until the browser closes the port. So the
+extension closes the port itself after that answer, and the next request
+starts a new host, which finds the app if it has started, or had its
+setting turned on, in the meantime.

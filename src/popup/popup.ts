@@ -1,6 +1,8 @@
 // The popup: shows what the service worker answers and sends back the
 // person's choice. It never sees a password.
 
+import { MIN_APP_VERSION } from "../background/protocol";
+import { api } from "../shared/api";
 import {
   queryTooShort,
   type FillResult,
@@ -10,14 +12,23 @@ import {
   type ShowResult,
   type View,
 } from "../shared/messages";
+import { sameSite } from "../shared/site";
 
 const root = document.getElementById("app") as HTMLElement;
 let tabId = -1;
 let site = "";
+// The origin the list on screen was built for. A fill goes there or nowhere.
+let listOrigin = "";
 let silo: string | undefined;
 
-function ask<T>(request: PopupRequest): Promise<T> {
-  return chrome.runtime.sendMessage(request) as Promise<T>;
+// Undefined when the background script could not answer, as when it stopped
+// between two messages.
+async function ask<T>(request: PopupRequest): Promise<T | undefined> {
+  try {
+    return (await api.runtime.sendMessage(request)) as T | undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -57,14 +68,21 @@ function banner(text: string): HTMLElement {
   return box;
 }
 
+function somethingWrong(body = "Close this and try again."): void {
+  show(header(), message("Something went wrong", body, "warn"));
+}
+
 const STATE_TEXT: Record<string, [string, string]> = {
   "no-host": [
     "SilentSilo is not installed",
-    "The desktop app, version 1.2.0 or later, needs to be installed on this computer.",
+    `SilentSilo ${MIN_APP_VERSION} or later needs to be installed on this computer. If it already is, run its installer again.`,
   ],
-  "app-not-running": ["SilentSilo is not running", "Start the desktop app and unlock your silo, then try again."],
+  "app-not-running": [
+    "SilentSilo is not reachable",
+    "Start the SilentSilo desktop app and turn on Settings > Browser extension there, then try again.",
+  ],
   locked: ["Your silo is locked", "Unlock it in SilentSilo, then try again."],
-  "no-silo": ["No silo yet", "Create or open a silo in the SilentSilo desktop app."],
+  "no-silo": ["No silo yet", "Create a silo in SilentSilo, or set one up from backup storage."],
   "unsupported-page": [
     "This page cannot be filled",
     "SilentSilo fills https pages, and http pages on this computer only.",
@@ -87,7 +105,7 @@ function render(view: View): void {
   if (view.state === "error") {
     // view.message is always one of the extension's own texts (TEXT in
     // service.ts), never words from the app.
-    show(header(), message("Could not reach your logins", view.message, "warn"));
+    show(header(), message("SilentSilo could not list your logins", view.message, "warn"));
     return;
   }
   const [title, body] = STATE_TEXT[view.state];
@@ -98,7 +116,8 @@ function render(view: View): void {
 
 const AFTER_SHOW: Record<"locked" | "no-silo", string> = {
   locked: "Unlock your silo in the SilentSilo window, then click the extension again.",
-  "no-silo": "Create or open a silo in the SilentSilo window, then click the extension again.",
+  "no-silo":
+    "Create a silo in the SilentSilo window, or set one up from backup storage, then click the extension again.",
 };
 
 // Brings the app's window forward. The popup may close as it takes focus.
@@ -133,6 +152,7 @@ function openApp(state: "locked" | "no-silo"): HTMLElement {
 
 function renderReady(view: Extract<View, { state: "ready" }>): void {
   site = view.site;
+  listOrigin = view.origin;
   silo = view.silo;
   if (view.waiting) {
     renderWaiting();
@@ -178,12 +198,6 @@ function siteLine(): HTMLElement {
   return line;
 }
 
-// Hosts equal, or one is www. plus the other: the app's own matching rule.
-function sameSite(a: string, b: string): boolean {
-  const bare = (host: string) => host.toLowerCase().replace(/^www\./, "");
-  return bare(a) === bare(b);
-}
-
 function savedFor(login: LoginSummary): HTMLElement {
   if (login.site === undefined) return el("span", "saved other", "Saved for an unknown site");
   if (!login.site) return el("span", "saved other", "Saved without a site");
@@ -196,10 +210,10 @@ function loginList(logins: LoginSummary[], showSite = false): HTMLElement {
     const item = el("li");
     const button = el("button", "login");
     button.type = "button";
-    button.append(el("span", "label", login.label || "(no name)"));
+    button.append(el("span", "label", login.label || "Untitled login"));
     if (login.username) button.append(el("span", "user", login.username));
     if (showSite) button.append(savedFor(login));
-    button.addEventListener("click", () => fill(login.ref));
+    button.addEventListener("click", () => void fill(login.ref));
     item.append(button);
     list.append(item);
   }
@@ -220,6 +234,7 @@ function renderSearch(silo: string | undefined, notice?: string): void {
   input.spellcheck = false;
 
   const results = el("div", "results");
+  results.setAttribute("aria-live", "polite");
   parts.push(input, results);
   show(...parts);
   input.focus();
@@ -241,6 +256,10 @@ function renderSearch(silo: string | undefined, notice?: string): void {
       }
       const answer = await ask<SearchResult>({ kind: "search", tabId, query });
       if (mine !== latest) return;
+      if (!answer) {
+        results.replaceChildren(el("p", "muted", "Something went wrong. Try again."));
+        return;
+      }
       // A refusal the person can wait out (busy) stays under the search box.
       if (answer.state === "error") {
         results.replaceChildren(el("p", "muted", answer.message));
@@ -270,10 +289,10 @@ function renderWaiting(): void {
 
 async function fill(ref: string): Promise<void> {
   renderWaiting();
-  const result = await ask<FillResult>({ kind: "fill", tabId, ref });
+  const result = await ask<FillResult>({ kind: "fill", tabId, ref, origin: listOrigin });
   await ask({ kind: "seen", tabId });
   if (!result) {
-    show(header(), message("Something went wrong", "Nothing was filled.", "warn"));
+    somethingWrong("Nothing was filled. Close this and try again.");
     return;
   }
   if (result.ok) {
@@ -285,19 +304,25 @@ async function fill(ref: string): Promise<void> {
     return;
   }
   const view = await ask<View>({ kind: "open", tabId });
+  if (!view) {
+    show(header(silo), message("Nothing was filled", result.message, "warn"));
+    return;
+  }
   if (view.state === "ready") renderReady({ ...view, notice: result.message });
   else render(view);
 }
 
 async function start(): Promise<void> {
-  show(header(), el("p", "muted loading", "Asking SilentSilo..."));
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  show(header(), el("p", "muted loading", "Asking SilentSilo…"));
+  const [tab] = await api.tabs.query({ active: true, currentWindow: true });
   if (tab?.id === undefined) {
     render({ state: "unsupported-page" });
     return;
   }
   tabId = tab.id;
-  render(await ask<View>({ kind: "open", tabId }));
+  const view = await ask<View>({ kind: "open", tabId });
+  if (view) render(view);
+  else somethingWrong();
 }
 
-start().catch(() => show(header(), message("Something went wrong", "Close this and try again.", "warn")));
+start().catch(() => somethingWrong());

@@ -1,7 +1,13 @@
 # SilentSilo browser extension
 
-Fills logins from a SilentSilo silo into the browser, on the computer where
-the desktop app is running. Not released yet.
+Fills logins from a SilentSilo silo into the browser. It works with the
+SilentSilo desktop app on Windows, version 1.2.0 or later, running on the
+same computer.
+
+Not released yet. The store listings wait for SilentSilo 1.2.0, the first
+desktop release that answers the extension. The Chrome Web Store has
+assigned the extension its id, and addons.mozilla.org holds the Firefox id
+`browser@silentsilo.com`.
 
 The desktop application is [silentsilo/desktop](https://github.com/silentsilo/desktop),
 the engine and the formats are [silentsilo/core](https://github.com/silentsilo/core),
@@ -17,9 +23,17 @@ app with Windows Hello or your security key. The extension then writes the
 username and password into the fields you are looking at. It does not keep
 or store them.
 
-So a page that manages to talk to the extension can ask for a fill, which
-you see and confirm or refuse. It cannot read anything, because there is
-nothing in the extension to read.
+Pages cannot talk to the extension: it has no content script, and its
+background script answers only its own popup. A program running as you on
+this computer can reach the desktop app the way the extension does and ask
+for a fill. The app shows every fill request, and nothing is sent until you
+confirm it there.
+
+To find the logins for a site, the desktop app decrypts every password entry
+of the open silo in its own memory on each lookup, keeps the label, username
+and address, and wipes the rest straight away. None of that reaches the
+extension; the one password a fill needs is read again only after you
+confirmed.
 
 Why it is built this way, and what was ruled out, is in
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -37,10 +51,11 @@ One codebase, Manifest V3, two builds.
   runs a service worker.
 - **Safari**: not planned. It needs a Mac to build and sign.
 
-Each browser finds the desktop app through its own native host
-registration, which the desktop installer writes. Nothing for mobile
-browsers: the Android app fills logins through the system's own autofill
-instead.
+Windows only for now: the desktop app's native host, which the browser
+talks to, is built for Windows. Each browser finds it through its own
+native host registration, which the desktop installer writes. Nothing for
+mobile browsers: the Android app fills logins through the system's own
+autofill instead.
 
 ## What it asks the browser for
 
@@ -48,9 +63,9 @@ instead.
 - `activeTab` and `scripting`, to write into the tab you clicked the button
   on, only then, and only in its top frame.
 
-No access to all sites, no content script that runs on every page, no
-storage. The popup and the service worker load nothing from the network: the
-manifest's content security policy allows only the extension's own files.
+No access to all sites, no content script, no storage. The popup and the
+service worker load nothing from the network: the manifest's content
+security policy allows only the extension's own files.
 
 The protocol with the desktop app is in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 The extension needs SilentSilo 1.2.0 or later.
@@ -93,11 +108,10 @@ unpacked extension gets a random id. The store build leaves any key out, and
 own id.
 
 Firefox does not use the key. Its id is fixed in the manifest, in both the
-development and the store build. The id is ours only once
-addons.mozilla.org holds it, so the first AMO submission (listed or
-unlisted; either one signs the add-on and reserves the id) must come before
-a desktop release trusts the id. Until then only debug builds of the native
-host accept it.
+development and the store build. A Firefox id belongs to whoever first
+submits it to addons.mozilla.org; our submission of 20 September 2026
+claimed `browser@silentsilo.com`, so release builds of the native host
+accept it.
 
 ## Load it unpacked
 
@@ -118,8 +132,9 @@ Firefox:
 
 Firefox removes a temporary add-on when it closes.
 
-Filling needs the desktop app installed, running and unlocked. Without it
-the popup says which of the three is missing.
+Filling needs the desktop app installed, running with Settings > Browser
+extension turned on, and unlocked. Without one of these the popup says
+which is missing.
 
 ## Licence
 

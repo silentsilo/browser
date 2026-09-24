@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SilentSilo",
-  "description": "Fills logins from SilentSilo on this computer. Every fill is confirmed in the desktop app.",
+  "description": "Fills logins from the SilentSilo desktop app for Windows. You confirm every fill in the app first.",
   "permissions": ["nativeMessaging", "activeTab", "scripting"],
   "action": {
     "default_title": "SilentSilo",

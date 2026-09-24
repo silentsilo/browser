@@ -30,14 +30,43 @@
   --text-muted: #98a3c2;
   --accent: #8b5cf6;
   --accent-hover: #a78bfa;
+  /* Filled buttons with white text, as on the desktop: white on --accent
+     is 4.2:1, on --accent-hover 2.7:1. */
+  --action: linear-gradient(135deg, #7c3aed 0%, #5b5bd6 100%);
+  --action-hover: linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%);
+  --focus: color-mix(in srgb, var(--accent) 70%, white);
   --emerald: #34d399;
   --warning: #f59e0b;
   --danger-on-dark: #f87171;
+  --page-end: #05070d;
+  --glow: rgba(139, 92, 246, 0.15);
   --radius: 10px;
   --radius-sm: 7px;
   color-scheme: dark;
   color: var(--text);
   background: var(--bg);
+}
+
+/* The desktop app's light palette, when the system asks for light. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --bg-hover: #f1f5f9;
+    --border: rgba(124, 58, 237, 0.22);
+    --border-subtle: rgba(124, 58, 237, 0.12);
+    --text: #1e293b;
+    --text-muted: #475569;
+    --accent: #7c3aed;
+    --accent-hover: #6d28d9;
+    --focus: #6d28d9;
+    --emerald: #047857;
+    --warning: #b45309;
+    --danger-on-dark: #b91c1c;
+    --page-end: #f1f5f9;
+    --glow: rgba(124, 58, 237, 0.08);
+    color-scheme: light;
+  }
 }
 
 * {
@@ -53,8 +82,8 @@ body {
   width: 340px;
   min-height: 160px;
   background:
-    radial-gradient(ellipse 100% 70% at 50% -20%, rgba(139, 92, 246, 0.15), transparent 60%),
-    linear-gradient(180deg, var(--bg) 0%, #05070d 100%);
+    radial-gradient(ellipse 100% 70% at 50% -20%, var(--glow), transparent 60%),
+    linear-gradient(180deg, var(--bg) 0%, var(--page-end) 100%);
 }
 
 main {
@@ -116,6 +145,14 @@ button {
   border: none;
 }
 
+/* The desktop's focus ring. An outline, not a shadow, so it stays visible
+   in forced colours (Windows high contrast). */
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .login {
   width: 100%;
   display: grid;
@@ -132,11 +169,6 @@ button {
 .login:focus-visible {
   background: var(--bg-hover);
   border-color: var(--border);
-  outline: none;
-}
-
-.login:focus-visible {
-  box-shadow: 0 0 0 2px var(--accent);
 }
 
 .label {
@@ -154,17 +186,19 @@ button {
   white-space: nowrap;
 }
 
+/* Padded to a comfortable target; the negative margin keeps the text where
+   it was. */
 .link {
-  margin-top: 12px;
-  padding: 0;
+  margin: 8px -6px 0;
+  padding: 4px 6px;
   background: none;
   color: var(--accent-hover);
+  border-radius: var(--radius-sm);
 }
 
 .link:hover,
 .link:focus-visible {
   text-decoration: underline;
-  outline: none;
 }
 
 .action {
@@ -172,18 +206,13 @@ button {
   padding: 8px 14px;
   font-weight: 600;
   color: #fff;
-  background: var(--accent);
+  background: var(--action);
   border-radius: var(--radius-sm);
 }
 
-.action:hover,
+.action:hover:not(:disabled),
 .action:focus-visible {
-  background: var(--accent-hover);
-  outline: none;
-}
-
-.action:focus-visible {
-  box-shadow: 0 0 0 2px var(--text);
+  background: var(--action-hover);
 }
 
 .action:disabled {
@@ -202,8 +231,7 @@ button {
   border-radius: var(--radius-sm);
 }
 
-.search:focus {
-  outline: 2px solid var(--accent);
+.search:focus-visible {
   outline-offset: -1px;
 }
 

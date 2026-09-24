@@ -13,10 +13,8 @@ import { build } from "esbuild";
 import { zipSync } from "fflate";
 import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { bundleOptions } from "./bundle.mjs";
 import { TARGETS, composeManifest } from "./manifest.mjs";
-
-// The oldest browser each target supports, as its manifest says.
-const ESBUILD_TARGET = { chrome: "chrome120", firefox: "firefox140" };
 
 const arg = process.argv[2];
 const store = process.argv.includes("--store");
@@ -36,19 +34,7 @@ async function buildTarget(target) {
   const manifest = composeManifest(target, { store, version: pkg.version });
   writeFileSync(join(out, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
-  await build({
-    entryPoints: { background: "src/background/index.ts", popup: "src/popup/popup.ts" },
-    outdir: out,
-    bundle: true,
-    format: "iife",
-    target: ESBUILD_TARGET[target],
-    // addons.mozilla.org reviewers read the shipped code, so Firefox stays
-    // unminified.
-    minify: store && target !== "firefox",
-    sourcemap: store ? false : "linked",
-    legalComments: "none",
-    logLevel: "warning",
-  });
+  await build({ ...bundleOptions(target, { store }), outdir: out });
 
   cpSync("src/popup/popup.html", join(out, "popup.html"));
   cpSync("src/popup/popup.css", join(out, "popup.css"));

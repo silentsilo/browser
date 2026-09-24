@@ -20,7 +20,8 @@ SilentSilo (the running desktop app)
   holds nothing and decides nothing: it checks who started it, relays whole
   messages between the browser's stdio and the pipe, and exits when either
   side closes. It is a separate binary so the browser never starts the full
-  app, with its webview, just to relay a message.
+  app, with its webview, just to relay a message. It runs on Windows only
+  for now.
 - **The browser** starts the host and names the calling extension in the
   arguments. The host accepts Chrome, Edge, Brave and Firefox, and refuses
   any id not in its own list for that browser, before it opens the pipe.
@@ -29,13 +30,18 @@ SilentSilo (the running desktop app)
     reads Chrome's, and installs the Chrome Web Store build, so it is let in
     under the Chrome Web Store id.
   - Firefox passes the path of the host manifest it read, then the add-on
-    id (`browser@silentsilo.com`). A Firefox id belongs to whoever first
-    submits it to addons.mozilla.org, so a release host trusts it only
-    after our AMO submission has claimed it. Until then only development
-    builds of the host accept it.
+    id (`browser@silentsilo.com`). Its host manifest lists add-on ids in
+    `allowed_extensions`, where the Chromium one lists origins in
+    `allowed_origins`. A Firefox id belongs to whoever first submits it to
+    addons.mozilla.org; our submission of 20 September 2026 claimed this
+    one, so release builds of the host accept it.
 - **The pipe** is created by the app with an ACL granting the current user
-  only. When the app is not running, the host answers `app-not-running`
-  itself and exits. It never starts the app.
+  only, and exists only while Settings > Browser extension is turned on.
+  When nothing listens on it, the host answers every request with
+  `app-not-running` itself and stays until the browser closes the port. It
+  never starts the app. The extension closes the port after an
+  `app-not-running` answer, so its next request starts a new host, which
+  finds the app if it has started, or had its setting turned on, since.
 
 ## Framing
 
@@ -99,6 +105,14 @@ the tab (`chrome.tabs`), never from the page.
   outside a `fill`.
 - No passwords, no notes, no TOTP secrets. A username is shown so a person
   with two accounts can pick one.
+- To answer, the app currently decrypts every password entry of the open
+  silo in its own memory, on every `logins`, `search` and `fill`, keeps the
+  label, username and saved address, and wipes the rest at once. None of
+  the rest is sent.
+
+The extension remembers, per tab, the origin it asked `logins` for. A
+`fill` goes to that origin only: when the tab has moved to another origin
+since, the extension refuses before it sends anything.
 
 ### search
 
@@ -132,9 +146,12 @@ person thinks, and only "Search anyway" opens the search box.
 { "id": "4", "type": "fill", "username": "alex@example.com", "password": "…" }
 ```
 
-The app shows its own confirmation, above other windows, naming the site and
-the login, and asks for Windows Hello or the security key, the same prompt it
-uses when a secret is copied. Nothing is sent before that succeeds.
+The app shows its own confirmation dialog (`BrowserFillDialog`), above other
+windows, naming the site and the login. Its Fill button asks for Windows
+Hello or the security key, the same check the app uses to reveal a
+protected entry. Nothing is sent before that succeeds. After a confirmed
+fill, a window that was hidden or minimised before the dialog goes back to
+that state.
 
 When the login was not saved for this origin (it came from `search`), the
 confirmation says so in words ("This login was saved for bank.example, not
@@ -189,6 +206,11 @@ as the same user cannot keep raising the window.
 | `bad-request` | malformed, too large, unknown type, disallowed origin |
 | `busy` | another fill is waiting for confirmation, too many requests (any of `logins`, `search`, `show`, `fill`), a fill was declined or timed out in the last few seconds, or a `show` came within 3 seconds of the last one |
 | `no-authenticator` | the silo has no security key or Windows Hello set up, so no fill can be confirmed |
+| `read-failed` | the silo is unlocked, but the app could not read its logins |
+
+`read-failed` came after the first version of this page. An extension that
+does not know it shows its generic line, as for any code it does not know.
+An app built before it answers `locked` in its place.
 
 `message` is informational, for logs and debugging. The extension does not
 display it: the popup shows its own text for each code, and one generic line
@@ -198,14 +220,18 @@ phish.
 
 A request too large or too malformed to read an `id` from is answered with
 `"id": ""`. The host's `app-not-running` also covers the app running with its
-Browser extension setting off: the pipe does not exist then either.
+Browser extension setting off: the pipe does not exist then either. So the
+popup's text for it asks the person to start SilentSilo and turn on
+Settings > Browser extension there.
 
 The popup shows `busy` as "SilentSilo is busy. Try again in a few seconds.",
-whatever the cause, and from any request.
+whatever the cause, and from any request. The one case it names is its own:
+when a fill from another tab is still waiting for confirmation, the
+extension says so and does not send the second `fill` at all.
 
 A host started by anything other than a supported browser exits before it
 reads a message. The extension sees only the port closing, and shows it like a
-host that found no app: SilentSilo is not running. A host the browser cannot
+host that found no app: SilentSilo is not reachable. A host the browser cannot
 find, or that does not list this extension, is shown as not installed.
 
 ## Versions

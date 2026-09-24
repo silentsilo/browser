@@ -17,7 +17,8 @@ export function queryTooShort(query: string): boolean {
 export type PopupRequest =
   | { kind: "open"; tabId: number }
   | { kind: "search"; tabId: number; query: string }
-  | { kind: "fill"; tabId: number; ref: string }
+  // `origin` is the one the list was built for; the fill goes there or nowhere.
+  | { kind: "fill"; tabId: number; ref: string; origin: string }
   // "Open SilentSilo": the app's window to the front, to unlock there.
   | { kind: "show" }
   // The popup showed how the fill ended, so nothing needs to wait for it.
@@ -33,6 +34,8 @@ export type View =
   | { state: "error"; message: string }
   | {
       state: "ready";
+      // The tab's origin when the list was built, and its host as shown.
+      origin: string;
       site: string;
       silo?: string;
       logins: LoginSummary[];

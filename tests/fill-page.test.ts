@@ -130,7 +130,7 @@ describe("decoys", () => {
 
   it("reports no password field when the only one is hidden", () => {
     page(`<form><input name="u"><input type="password" style="display:none"></form>`);
-    expect(fill()).toEqual({ outcome: "no-password", crossOriginFrame: false });
+    expect(fill()).toEqual({ outcome: "no-password", frame: null });
     expect(value("[name=u]")).toBe("");
   });
 });
@@ -159,12 +159,27 @@ describe("what it will not do", () => {
 
   it("reports a form in a frame from another site", () => {
     page(`<iframe src="https://login.example.net/form"></iframe>`);
-    expect(fill()).toEqual({ outcome: "no-password", crossOriginFrame: true });
+    expect(fill()).toEqual({ outcome: "no-password", frame: "other-site" });
   });
 
-  it("does not blame a same-origin or hidden frame", () => {
+  it("does not blame a same-origin frame without a password field, or a hidden frame", () => {
     page(`<iframe src="/widget"></iframe><iframe src="https://ads.example.net/" style="display:none"></iframe>`);
-    expect(fill()).toEqual({ outcome: "no-password", crossOriginFrame: false });
+    expect(fill()).toEqual({ outcome: "no-password", frame: null });
+  });
+
+  it("reports a form in a frame of this site, and fills nothing in it", () => {
+    page(`<iframe></iframe>`);
+    const inner = (document.querySelector("iframe") as HTMLIFrameElement).contentDocument as Document;
+    inner.body.innerHTML = `<form><input name="u"><input name="p" type="password"></form>`;
+    expect(fill()).toEqual({ outcome: "no-password", frame: "this-site" });
+    expect((inner.querySelector("[name=p]") as HTMLInputElement).value).toBe("");
+  });
+
+  it("prefers a form found in a frame of this site over a frame from another", () => {
+    page(`<iframe src="https://ads.example.net/"></iframe><iframe></iframe>`);
+    const inner = (document.querySelectorAll("iframe")[1] as HTMLIFrameElement).contentDocument as Document;
+    inner.body.innerHTML = `<input type="password">`;
+    expect(fill()).toEqual({ outcome: "no-password", frame: "this-site" });
   });
 });
 

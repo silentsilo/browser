@@ -26,36 +26,43 @@ export const TEXT = {
   noPassword: "No password field on this page. Open the login form, then try again.",
   crossOriginFrame:
     "The login form is inside a frame from another site. This version fills only the main page.",
+  sameOriginFrame: "The login form is inside a frame on this page. This version fills only the main page.",
   navigated: "The page changed before the fill. Nothing was filled.",
   cannotReach: "This page cannot be filled.",
   generic: "Something went wrong. Nothing was filled.",
   // One per error code the app sends. The app's own `message` is never shown.
-  unknownRef: "That login is out of date. Close this and open it again.",
+  unknownRef: "This list was out of date, so nothing was filled. Choose the login again.",
   cancelled: "The fill was not confirmed in SilentSilo. Nothing was filled.",
   // Another fill waiting, too many requests, or the pause after a declined fill.
   busy: "SilentSilo is busy. Try again in a few seconds.",
   noAuthenticator:
-    "This silo has no security key or Windows Hello set up, so SilentSilo cannot confirm a fill. Add one in SilentSilo, then try again.",
+    "This silo has no security key or Windows Hello set up, so SilentSilo cannot confirm a fill. Add one under Unlocking in SilentSilo, then try again.",
   badRequest: "SilentSilo refused the request. If this keeps happening, update SilentSilo and this extension.",
+  readFailed: "SilentSilo could not read the logins in this silo. Try again, or restart SilentSilo.",
   unknownCode: "SilentSilo refused the request for a reason this extension does not know. Update both to the latest version.",
   alreadyWaiting: "A fill is already waiting for confirmation.",
+  otherTabWaiting:
+    "A fill on another tab is waiting for confirmation in SilentSilo. Confirm or cancel it there, then try again.",
 };
 
 export class Service {
   // Tabs with a fill waiting for confirmation in the app.
   private waiting = new Set<number>();
-  // How a fill ended when the popup may have been closed. Never a secret.
-  private notices = new Map<number, string>();
+  // How a fill ended when the popup may have been closed, and the origin it
+  // was for. Never a secret.
+  private notices = new Map<number, { origin: string; message: string }>();
 
   constructor(private readonly deps: ServiceDeps) {}
 
   async open(tabId: number): Promise<View> {
-    const notice = this.notices.get(tabId);
+    const saved = this.notices.get(tabId);
     this.notices.delete(tabId);
     this.deps.flag(tabId, false);
 
     const origin = fillableOrigin(await this.deps.tabUrl(tabId));
     if (!origin) return { state: "unsupported-page" };
+    // Shown only on the site it was about.
+    const notice = saved?.origin === origin ? saved.message : undefined;
     try {
       const status = await this.deps.client.request({ type: "status" }, QUICK_TIMEOUT_MS);
       const version = typeof status.version === "string" ? status.version : "";
@@ -71,6 +78,7 @@ export class Service {
       if (!logins) return { state: "error", message: TEXT.badAnswer };
       return {
         state: "ready",
+        origin,
         site: siteName(origin),
         silo: typeof status.silo === "string" ? status.silo : undefined,
         logins,
@@ -106,10 +114,11 @@ export class Service {
     }
   }
 
-  async fill(tabId: number, ref: string): Promise<FillResult> {
-    const result = await this.fillOnce(tabId, ref);
+  // `listed` is the origin the popup's list was built for.
+  async fill(tabId: number, ref: string, listed: string): Promise<FillResult> {
+    const result = await this.fillOnce(tabId, ref, listed);
     if (!result.ok) {
-      this.notices.set(tabId, result.message);
+      this.notices.set(tabId, { origin: listed, message: result.message });
       this.deps.flag(tabId, true);
     }
     return result;
@@ -121,9 +130,16 @@ export class Service {
     this.deps.flag(tabId, false);
   }
 
-  private async fillOnce(tabId: number, ref: string): Promise<FillResult> {
+  // The tab closed: nothing about it is kept.
+  forget(tabId: number): void {
+    this.notices.delete(tabId);
+  }
+
+  private async fillOnce(tabId: number, ref: string, listed: string): Promise<FillResult> {
     const origin = fillableOrigin(await this.deps.tabUrl(tabId));
     if (!origin) return { ok: false, message: TEXT.cannotReach };
+    // The fill goes where the list was made for, or nowhere.
+    if (origin !== listed) return { ok: false, message: TEXT.navigated };
 
     // Look for the fields before asking the app, so nobody confirms a fill
     // that has nowhere to go.
@@ -131,6 +147,8 @@ export class Service {
     if (probe.outcome !== "ready") return pageFailure(probe);
 
     if (this.waiting.has(tabId)) return { ok: false, message: TEXT.alreadyWaiting };
+    // The app would answer busy; this says why.
+    if (this.waiting.size > 0) return { ok: false, message: TEXT.otherTabWaiting };
     this.waiting.add(tabId);
     let answer: Record<string, unknown>;
     try {
@@ -166,14 +184,16 @@ export class Service {
 
 function fillStopped(state: View["state"]): string {
   if (state === "locked") return "Your silo is locked. Nothing was filled.";
-  if (state === "app-not-running") return "SilentSilo is not running. Nothing was filled.";
+  if (state === "app-not-running") return "SilentSilo is not reachable. Nothing was filled.";
   return TEXT.generic;
 }
 
 function pageFailure(result: PageResult | { outcome: "unreachable" }): FillResult {
   switch (result.outcome) {
     case "no-password":
-      return { ok: false, message: result.crossOriginFrame ? TEXT.crossOriginFrame : TEXT.noPassword };
+      if (result.frame === "this-site") return { ok: false, message: TEXT.sameOriginFrame };
+      if (result.frame === "other-site") return { ok: false, message: TEXT.crossOriginFrame };
+      return { ok: false, message: TEXT.noPassword };
     case "wrong-origin":
       return { ok: false, message: TEXT.navigated };
     case "unreachable":
@@ -222,6 +242,8 @@ export function errorView(error: unknown): Exclude<View, { state: "ready" }> {
       return { state: "error", message: TEXT.noAuthenticator };
     case "bad-request":
       return { state: "error", message: TEXT.badRequest };
+    case "read-failed":
+      return { state: "error", message: TEXT.readFailed };
     default:
       return { state: "error", message: TEXT.unknownCode };
   }
