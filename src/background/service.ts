@@ -28,6 +28,11 @@ export const TEXT = {
     "The login form is inside a frame from another site. This version fills only the main page.",
   sameOriginFrame: "The login form is inside a frame on this page. This version fills only the main page.",
   navigated: "The page changed before the fill. Nothing was filled.",
+  // A form planted on the site to send the password somewhere else.
+  elsewhere: (host: string) =>
+    host
+      ? `The login form on this page sends what you type to ${host}, not to this site. Nothing was filled.`
+      : "The login form on this page sends what you type somewhere other than this site. Nothing was filled.",
   cannotReach: "This page cannot be filled.",
   generic: "Something went wrong. Nothing was filled.",
   // One per error code the app sends. The app's own `message` is never shown.
@@ -196,6 +201,8 @@ function pageFailure(result: PageResult | { outcome: "unreachable" }): FillResul
       return { ok: false, message: TEXT.noPassword };
     case "wrong-origin":
       return { ok: false, message: TEXT.navigated };
+    case "elsewhere":
+      return { ok: false, message: TEXT.elsewhere(result.host) };
     case "unreachable":
       return { ok: false, message: TEXT.cannotReach };
     default:

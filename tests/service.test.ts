@@ -196,6 +196,14 @@ describe("fill", () => {
     expect(await service.fill(3, "r1", GH)).toEqual({ ok: false, message: TEXT.sameOriginFrame });
   });
 
+  it("does not ask the app when the only form sends to another site, and names it", async () => {
+    const { service, requests, setPage } = setup({});
+    setPage(() => ({ outcome: "elsewhere", host: "collect.example" }));
+    expect(await service.fill(3, "r1", GH)).toEqual({ ok: false, message: TEXT.elsewhere("collect.example") });
+    expect(TEXT.elsewhere("collect.example")).toContain("collect.example");
+    expect(requests).toHaveLength(0);
+  });
+
   it("fills only the origin the list was built for", async () => {
     const { service, requests, pageCalls } = setup({ fill: { username: "u", password: "p" } }, "https://evil.example/");
     expect(await service.fill(3, "r1", GH)).toEqual({ ok: false, message: TEXT.navigated });

@@ -43,7 +43,19 @@ page  <->  extension (popup + background script)  <->  desktop app (native messa
   two fields, after the user confirmed. It never gets a list, a message or a
   script beyond that write. There is no content script: the one function
   that runs in the page is injected on the user's click, through
-  `activeTab`, and only in the top frame.
+  `activeTab`, only in the top frame and in the isolated world, so page
+  scripts cannot replace what it calls. In Chrome the fill goes to the
+  document the probe looked at (`documentIds`); a page that changed in
+  between gets nothing.
+- **The fields** are the page's own login form, not one planted on it.
+  Someone who can post markup on the right site, but not scripts, could add
+  a form that sends what is typed to their own server. So a password field
+  is filled only when its form, and every button in it, sends to this
+  site, a subdomain of it, or a domain it is under; otherwise the popup
+  names where the form sends and fills nothing. A field that is hidden, or
+  has something laid over it, is skipped: hidden, inert or `aria-hidden`
+  on it or any parent, no size, off the page, or covered at every point
+  tested with `elementFromPoint` (its own label drawn over it is fine).
 - **The extension** asks and writes. It sends the page's origin to the app,
   shows what the app answers (labels only, never secrets), and on the user's
   choice asks for one fill. The background script keeps, per tab, how the
@@ -108,8 +120,10 @@ from. It relies on the checks above for that, and the origin in a request is
 the one the extension read from `chrome.tabs`. Messages carry the origin, a
 request id and, on the way back, labels or one login. The app refuses when
 no silo is unlocked. An error answer carries a code; the popup shows its own
-text for each code and never the words that came with it, so nothing on the
-other end of the pipe can write into the extension's interface.
+text for each code and never the words that came with it. The silo name and
+each login's label, username and site are shown as sent, as plain text: a
+program that got past the host's check on the pipe could put words there,
+never markup.
 
 ## What this does not protect against
 
@@ -125,6 +139,14 @@ other end of the pipe can write into the extension's interface.
 - **Confirming without reading.** The prompt names the site and says when a
   login was saved for another one. A person who confirms every prompt
   without reading it gives that protection away.
+- **A confirmation nobody gave.** A program running as the user can click
+  the app's Fill button itself, and Windows Hello face recognition can then
+  pass while the person just sits there. A security key, or a Hello PIN or
+  fingerprint, needs a person. The app lists every fill since it started
+  under Settings > Browser extension, so one nobody meant can be seen.
+- **What a search shows.** Label, username and site of logins saved for
+  other sites come back without a prompt, to anything that can ask. The app
+  rations search, so listing a whole silo that way takes most of an hour.
 
 ## Confirmation
 

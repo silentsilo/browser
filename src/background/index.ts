@@ -15,17 +15,35 @@ const client = new NativeClient({
   lastError: () => api.runtime.lastError?.message,
 });
 
+// The document the last probe looked at, per tab, so the fill writes into
+// that one and not into whatever the tab shows by then. Chrome reports it;
+// Firefox does not, and falls back to the top frame and the origin check.
+const probed = new Map<number, string>();
+
 const service = new Service({
   client,
   tabUrl: async (tabId) => (await api.tabs.get(tabId)).url,
   runInPage: async (tabId: number, args: FillArgs) => {
+    const documentId = args.fill ? probed.get(tabId) : undefined;
+    probed.delete(tabId);
     // Top frame only, and only in the tab the person clicked from: activeTab
-    // grants nothing else.
-    const [frame] = await api.scripting.executeScript({
-      target: { tabId },
-      func: fillPage,
-      args: [args],
-    });
+    // grants nothing else. The isolated world keeps page scripts from
+    // replacing what the function calls.
+    let frame;
+    try {
+      [frame] = await api.scripting.executeScript({
+        target: documentId ? { tabId, documentIds: [documentId] } : { tabId, frameIds: [0] },
+        world: "ISOLATED",
+        func: fillPage,
+        args: [args],
+      });
+    } catch (error) {
+      // The probed document is gone: the page changed while the person
+      // confirmed.
+      if (documentId) return { outcome: "wrong-origin" };
+      throw error;
+    }
+    if (!args.fill && frame?.documentId) probed.set(tabId, frame.documentId);
     return frame?.result as PageResult | undefined;
   },
   flag: (tabId, on) => {
@@ -44,7 +62,10 @@ api.runtime.onMessage.addListener((message: PopupRequest, sender, sendResponse) 
   return true;
 });
 
-api.tabs.onRemoved.addListener((tabId) => service.forget(tabId));
+api.tabs.onRemoved.addListener((tabId) => {
+  service.forget(tabId);
+  probed.delete(tabId);
+});
 
 async function handle(message: PopupRequest): Promise<unknown> {
   switch (message.kind) {

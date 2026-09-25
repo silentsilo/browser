@@ -117,7 +117,9 @@ since, the extension refuses before it sends anything.
 ### search
 
 Asked only when the person types in the popup, because nothing matched or
-they want another login. Same answer shape as `logins`, at most 20 results,
+they want another login. The app allows 15 searches, then one every 4
+seconds, across all connections, on top of the lookup rations, and answers
+`busy` past that. Same answer shape as `logins`, at most 20 results,
 matched on label and username. A query shorter than two characters, counted
 after trimming, answers an empty list; the extension does not send one, and
 the popup says "Type at least two characters".
@@ -214,9 +216,8 @@ An app built before it answers `locked` in its place.
 
 `message` is informational, for logs and debugging. The extension does not
 display it: the popup shows its own text for each code, and one generic line
-for a code it does not know. Words that came over the pipe never reach the
-extension's interface, so a process squatting the pipe cannot use it to
-phish.
+for a code it does not know. The silo name and each login's label, username
+and site are shown as sent, as plain text, never as markup.
 
 A request too large or too malformed to read an `id` from is answered with
 `"id": ""`. The host's `app-not-running` also covers the app running with its

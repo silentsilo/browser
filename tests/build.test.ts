@@ -28,6 +28,23 @@ describe("manifests", () => {
     },
   );
 
+  it.each([
+    ["externally_connectable", { matches: ["https://*/*"] }],
+    ["web_accessible_resources", [{ resources: ["popup.html"], matches: ["<all_urls>"] }]],
+    ["optional_host_permissions", ["https://*/*"]],
+    ["optional_permissions", ["tabs"]],
+    ["content_scripts", [{ matches: ["<all_urls>"], js: ["x.js"] }]],
+  ])("refuses a manifest that declares %s", (key, value) => {
+    const m = { ...composeManifest("chrome", { store: true, version }), [key]: value };
+    expect(() => checkManifest("chrome", m, { store: true })).toThrow(key);
+  });
+
+  it("refuses a permission beyond the three", () => {
+    const m = composeManifest("chrome", { store: true, version });
+    m.permissions = [...(m.permissions as string[]), "tabs"];
+    expect(() => checkManifest("chrome", m, { store: true })).toThrow("permissions");
+  });
+
   it.each(TARGETS)("the %s store build carries no key", (target) => {
     expect(composeManifest(target, { store: true, version })).not.toHaveProperty("key");
   });
