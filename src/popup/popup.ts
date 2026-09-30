@@ -80,8 +80,10 @@ function askAgain(state: Waiting): void {
     if (mine !== screen || !root.isConnected) return;
     const view = await ask<View>({ kind: "open", tabId });
     if (mine !== screen) return;
-    // A busy or late answer is waited out like the same one.
-    if (!view || view.state === state || view.state === "error") askAgain(state);
+    // Only the same answer, or none, is waited out. An error is shown: taken
+    // as "still waiting", a silo that failed to read after its unlock stayed
+    // on "locked" while every try read it again.
+    if (!view || view.state === state) askAgain(state);
     else render(view);
   }, RECHECK_MS);
 }

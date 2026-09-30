@@ -28,6 +28,36 @@ export type FillResult =
 export function fillPage(args: FillArgs): FillResult {
   if (location.origin !== args.expectedOrigin) return { outcome: "wrong-origin" };
 
+  // Read through the prototypes, never the element: a form's named controls
+  // shadow its own properties, and the document's named images and forms
+  // shadow the document's. An input named "elements" hid every button of its
+  // form from the check below. A getter that is missing throws, and nothing
+  // is filled.
+  function getter(proto: object, name: string): (this: unknown) => unknown {
+    const get = Object.getOwnPropertyDescriptor(proto, name)?.get;
+    if (!get) throw new Error(`no ${name}`);
+    return get;
+  }
+  const formElements = getter(HTMLFormElement.prototype, "elements");
+  const rootElement = getter(Document.prototype, "documentElement");
+  const baseURI = getter(Node.prototype, "baseURI");
+  const hasAttribute = Element.prototype.hasAttribute;
+  const getAttribute = Element.prototype.getAttribute;
+
+  // Where a form sends, as the browser works it out: an empty address is
+  // the page itself, anything else is read against the document's base,
+  // which a planted `<base href>` sets. Read against `location`, a relative
+  // address looked like this site whatever the base said.
+  function sentTo(element: Element, attribute: string): string {
+    const address = getAttribute.call(element, attribute) ?? "";
+    if (address.trim() === "") return location.href;
+    try {
+      return new URL(address, String(baseURI.call(document))).href;
+    } catch {
+      return address;
+    }
+  }
+
   function hiddenByStyle(element: Element): boolean {
     for (let node: Element | null = element; node; node = parentElement(node)) {
       if (node.hasAttribute("hidden") || node.hasAttribute("inert")) return true;
@@ -60,7 +90,7 @@ export function fillPage(args: FillArgs): FillResult {
       const rect = element.getBoundingClientRect();
       if (rect.width <= 1 || rect.height <= 1) return false;
       if (rect.right + scrollX <= 0 || rect.bottom + scrollY <= 0) return false;
-      const page = document.documentElement;
+      const page = rootElement.call(document) as HTMLElement;
       if (rect.left + scrollX >= Math.max(page.scrollWidth, innerWidth)) return false;
       if (rect.top + scrollY >= Math.max(page.scrollHeight, innerHeight)) return false;
       if (!onTop(element, rect)) return false;
@@ -98,13 +128,13 @@ export function fillPage(args: FillArgs): FillResult {
     const form = input.form;
     if (!form) return null;
     const targets: string[] = [];
-    if (form.hasAttribute("action")) targets.push(form.getAttribute("action") ?? "");
-    for (const element of Array.from(form.elements)) {
+    if (hasAttribute.call(form, "action")) targets.push(sentTo(form, "action"));
+    for (const element of Array.from(formElements.call(form) as HTMLFormControlsCollection)) {
       if (
         (element instanceof HTMLButtonElement || element instanceof HTMLInputElement) &&
-        element.hasAttribute("formaction")
+        hasAttribute.call(element, "formaction")
       ) {
-        targets.push(element.getAttribute("formaction") ?? "");
+        targets.push(sentTo(element, "formaction"));
       }
     }
     for (const target of targets) {

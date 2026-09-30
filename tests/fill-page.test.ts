@@ -166,6 +166,26 @@ describe("where the form sends it", () => {
     expect(value("[name=p]")).toBe("");
   });
 
+  it("reads a relative address against a planted <base>, as the browser sends it", () => {
+    // Resolved against the page's address, "/login" looked like this site.
+    const base = document.createElement("base");
+    base.href = "https://collect.example/";
+    document.head.append(base);
+    try {
+      page(`<form action="/login"><input name="u"><input name="p" type="password"></form>`);
+      expect(fill()).toEqual({ outcome: "elsewhere", host: "collect.example" });
+      expect(value("[name=p]")).toBe("");
+    } finally {
+      base.remove();
+    }
+  });
+
+  it("refuses a button outside the form that belongs to it", () => {
+    page(`<form id="login"><input name="u"><input name="p" type="password"></form>
+          <button form="login" formaction="https://collect.example/c">Sign in</button>`);
+    expect(fill()).toEqual({ outcome: "elsewhere", host: "collect.example" });
+  });
+
   it("counts a script address as another site", () => {
     page(`<form action="javascript:void(0)"><input name="p" type="password"></form>`);
     expect(fill()).toEqual({ outcome: "elsewhere", host: "" });

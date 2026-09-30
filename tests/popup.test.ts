@@ -454,6 +454,25 @@ describe("a popup left open", () => {
     client.close();
   });
 
+  it("shows an error after the unlock instead of waiting on", async () => {
+    let state = "locked";
+    let asked = 0;
+    const client = await openPopup((request) => {
+      if (request.type === "status") {
+        asked++;
+        return { ...unlocked, state };
+      }
+      return { type: "error", code: "read-failed", message: HOSTILE };
+    });
+    state = "unlocked";
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.waitFor(() => expect(text()).toContain(TEXT.readFailed));
+    const after = asked;
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(asked).toBe(after);
+    client.close();
+  });
+
   it("stops asking once the list is shown", async () => {
     let asked = 0;
     let state = "locked";

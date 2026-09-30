@@ -52,7 +52,11 @@ page  <->  extension (popup + background script)  <->  desktop app (native messa
   a form that sends what is typed to their own server. So a password field
   is filled only when its form, and every button in it, sends to this
   site, a subdomain of it, or a domain it is under; otherwise the popup
-  names where the form sends and fills nothing. A field that is hidden, or
+  names where the form sends and fills nothing. Addresses are read against
+  the document's base, as the browser sends them, so a planted `<base href>`
+  counts; and the form is read through the DOM prototypes, since planted
+  markup can name a field `elements` and hide the form's buttons from a
+  plain `form.elements`. A field that is hidden, or
   has something laid over it, is skipped: hidden, inert or `aria-hidden`
   on it or any parent, no size, off the page, or covered at every point
   tested with `elementFromPoint` (its own label drawn over it is fine).
