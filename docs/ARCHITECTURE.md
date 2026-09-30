@@ -199,3 +199,9 @@ request with `app-not-running` until the browser closes the port. So the
 extension closes the port itself after that answer, and the next request
 starts a new host, which finds the app if it has started, or had its
 setting turned on, in the meantime.
+
+While the popup says the app is not reachable, the silo is locked or there
+is no silo, it asks again every 2 seconds and moves on when the answer
+changes. Each try is one `status`, which the app does not ration, or one
+new host when no app listens. It stops when the popup closes or shows
+anything else.

@@ -260,7 +260,18 @@ input:focus-visible {
   color: var(--emerald);
 }
 
-.message.waiting h1::before {
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.rechecking {
+  margin-top: 14px;
+}
+
+.message.waiting h1::before,
+.rechecking::before {
   content: "";
   display: inline-block;
   width: 8px;
@@ -272,14 +283,15 @@ input:focus-visible {
   animation: pulse 1.4s ease-in-out infinite;
 }
 
-@keyframes pulse {
-  50% {
-    opacity: 0.3;
-  }
+.rechecking::before {
+  width: 6px;
+  height: 6px;
+  background: var(--text-muted);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .message.waiting h1::before {
+  .message.waiting h1::before,
+  .rechecking::before {
     animation: none;
   }
 }

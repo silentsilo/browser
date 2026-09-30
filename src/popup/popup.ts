@@ -20,6 +20,12 @@ let site = "";
 // The origin the list on screen was built for. A fill goes there or nowhere.
 let listOrigin = "";
 let silo: string | undefined;
+// Bumped by every new screen, so a recheck started for an old one does nothing.
+let screen = 0;
+let recheck: ReturnType<typeof setTimeout> | undefined;
+
+// How often a screen waiting on the app asks again.
+const RECHECK_MS = 2000;
 
 // Undefined when the background script could not answer, as when it stopped
 // between two messages.
@@ -53,7 +59,31 @@ function header(silo?: string): HTMLElement {
 }
 
 function show(...children: Node[]): void {
+  screen++;
+  clearTimeout(recheck);
   root.replaceChildren(...children);
+}
+
+// The app not running, the silo locked, no silo yet: the popup asks again
+// every few seconds and moves on by itself when the answer changes.
+type Waiting = "app-not-running" | "locked" | "no-silo";
+
+const WAITING_FOR: Record<Waiting, string> = {
+  "app-not-running": "Waiting for SilentSilo to start…",
+  locked: "Waiting for the silo to be unlocked…",
+  "no-silo": "Waiting for a silo…",
+};
+
+function askAgain(state: Waiting): void {
+  const mine = screen;
+  recheck = setTimeout(async () => {
+    if (mine !== screen || !root.isConnected) return;
+    const view = await ask<View>({ kind: "open", tabId });
+    if (mine !== screen) return;
+    // A busy or late answer is waited out like the same one.
+    if (!view || view.state === state || view.state === "error") askAgain(state);
+    else render(view);
+  }, RECHECK_MS);
 }
 
 function message(title: string, body: string, tone: "plain" | "warn" = "plain"): HTMLElement {
@@ -79,9 +109,9 @@ const STATE_TEXT: Record<string, [string, string]> = {
   ],
   "app-not-running": [
     "SilentSilo is not reachable",
-    "Start the SilentSilo desktop app and turn on Settings > Browser extension there, then try again.",
+    "Start the SilentSilo desktop app and turn on Settings > Browser extension there.",
   ],
-  locked: ["Your silo is locked", "Unlock it in SilentSilo, then try again."],
+  locked: ["Your silo is locked", "Unlock it in SilentSilo."],
   "no-silo": ["No silo yet", "Create a silo in SilentSilo, or set one up from backup storage."],
   "unsupported-page": [
     "This page cannot be filled",
@@ -111,13 +141,21 @@ function render(view: View): void {
   const [title, body] = STATE_TEXT[view.state];
   const parts: Node[] = [header(), message(title, body, view.state === "unsupported-page" ? "plain" : "warn")];
   if (view.state === "locked" || view.state === "no-silo") parts.push(openApp(view.state));
+  if (view.state === "app-not-running" || view.state === "locked" || view.state === "no-silo") {
+    parts.push(el("p", "hint rechecking", WAITING_FOR[view.state]));
+    show(...parts);
+    askAgain(view.state);
+    return;
+  }
   show(...parts);
 }
 
+// The popup may close as the window takes focus; if it stays open, it moves
+// on by itself.
 const AFTER_SHOW: Record<"locked" | "no-silo", string> = {
-  locked: "Unlock your silo in the SilentSilo window, then click the extension again.",
+  locked: "Unlock your silo in the SilentSilo window. If this closes, click the extension again afterwards.",
   "no-silo":
-    "Create a silo in the SilentSilo window, or set one up from backup storage, then click the extension again.",
+    "Create a silo in the SilentSilo window, or set one up from backup storage. If this closes, click the extension again afterwards.",
 };
 
 // Brings the app's window forward. The popup may close as it takes focus.

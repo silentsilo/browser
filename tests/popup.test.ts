@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NativeClient, type NativePort } from "../src/background/native-client";
 import { Service, TEXT } from "../src/background/service";
 import type { PopupRequest } from "../src/shared/messages";
@@ -411,5 +411,65 @@ describe("the colour of Saved for", () => {
     ["", "github.com", false],
   ])("%s on %s: same site %s", (saved, tab, same) => {
     expect(sameSite(saved, tab)).toBe(same);
+  });
+});
+
+describe("a popup left open", () => {
+  // The recheck's timer is fake; the port still answers in a microtask.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("shows the list once the app starts, without being opened again", async () => {
+    let running = false;
+    const client = await openPopup((request) => {
+      if (!running) return { type: "error", code: "app-not-running", message: HOSTILE };
+      if (request.type === "status") return unlocked;
+      return { type: "logins", logins: [{ ref: "r1", label: "GitHub", username: "alex" }] };
+    });
+    expect(text()).toContain("Waiting for SilentSilo to start");
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(text()).toContain("SilentSilo is not reachable");
+    running = true;
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.waitFor(() => expect(text()).toContain("GitHub"));
+    expect(text()).not.toContain("Waiting");
+    client.close();
+  });
+
+  it("shows the list once the silo is unlocked", async () => {
+    let state = "locked";
+    const client = await openPopup((request) => {
+      if (request.type === "status") return { ...unlocked, state };
+      return { type: "logins", logins: [{ ref: "r1", label: "GitHub", username: "alex" }] };
+    });
+    expect(text()).toContain("Waiting for the silo to be unlocked");
+    state = "unlocked";
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.waitFor(() => expect(text()).toContain("GitHub"));
+    client.close();
+  });
+
+  it("stops asking once the list is shown", async () => {
+    let asked = 0;
+    let state = "locked";
+    const client = await openPopup((request) => {
+      if (request.type === "status") {
+        asked++;
+        return { ...unlocked, state };
+      }
+      return { type: "logins", logins: [] };
+    });
+    state = "unlocked";
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.waitFor(() => expect(text()).toContain("Nothing saved for this site"));
+    const after = asked;
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(asked).toBe(after);
+    client.close();
   });
 });
