@@ -8,6 +8,7 @@ import {
   type FillResult,
   type LoginSummary,
   type PopupRequest,
+  type SaveResult,
   type SearchResult,
   type ShowResult,
   type View,
@@ -20,6 +21,8 @@ let site = "";
 // The origin the list on screen was built for. A fill goes there or nowhere.
 let listOrigin = "";
 let silo: string | undefined;
+// The app saves logins from the page (1.4.0 and later).
+let canSave = false;
 // Bumped by every new screen, so a recheck started for an old one does nothing.
 let screen = 0;
 let recheck: ReturnType<typeof setTimeout> | undefined;
@@ -194,8 +197,9 @@ function renderReady(view: Extract<View, { state: "ready" }>): void {
   site = view.site;
   listOrigin = view.origin;
   silo = view.silo;
+  canSave = view.canSave;
   if (view.waiting) {
-    renderWaiting();
+    renderWaiting(view.waiting);
     return;
   }
   const parts: Node[] = [header(view.silo), siteLine()];
@@ -206,6 +210,7 @@ function renderReady(view: Extract<View, { state: "ready" }>): void {
     more.type = "button";
     more.addEventListener("click", () => renderSearch(view.silo, view.notice));
     parts.push(more);
+    if (canSave) parts.push(saveButton());
     show(...parts);
   } else {
     renderNoMatch(view.silo, view.notice);
@@ -229,7 +234,47 @@ function renderNoMatch(silo: string | undefined, notice?: string): void {
   anyway.type = "button";
   anyway.addEventListener("click", () => renderSearch(silo, notice));
   parts.push(anyway);
+  if (canSave) parts.push(saveButton());
   show(...parts);
+}
+
+// What the person typed on the page, offered to the app, which asks them.
+// The popup never sees the password: the service worker reads it from the
+// page and sends it on.
+function saveButton(): HTMLElement {
+  const box = el("div", "save");
+  const button = el("button", "link", "Save this login in SilentSilo");
+  button.type = "button";
+  button.addEventListener("click", () => void save());
+  box.append(button, el("p", "hint", "Type the login on the page first, then click this before you sign in."));
+  return box;
+}
+
+async function save(): Promise<void> {
+  renderWaiting("save");
+  const result = await ask<SaveResult>({ kind: "save", tabId, origin: listOrigin });
+  await ask({ kind: "seen", tabId });
+  if (!result) {
+    somethingWrong("Nothing was saved. Close this and try again.");
+    return;
+  }
+  if (result.ok) {
+    show(
+      header(silo),
+      message(
+        result.updated ? "Password updated" : "Saved",
+        result.updated
+          ? `The login for ${site} has the new password. The old one is in its history.`
+          : `The login for ${site} is in your silo.`,
+      ),
+    );
+    return;
+  }
+  if (result.view && result.view.state !== "error") {
+    render(result.view);
+    return;
+  }
+  show(header(silo), message("Not saved", result.message, "warn"));
 }
 
 function siteLine(): HTMLElement {
@@ -321,14 +366,19 @@ function renderSearch(silo: string | undefined, notice?: string): void {
   });
 }
 
-function renderWaiting(): void {
-  const box = message("Confirm in SilentSilo", `The desktop app is asking you to confirm this fill on ${site}.`);
+function renderWaiting(what: "fill" | "save"): void {
+  const box = message(
+    "Confirm in SilentSilo",
+    what === "fill"
+      ? `The desktop app is asking you to confirm this fill on ${site}.`
+      : `The desktop app is asking whether to save the login for ${site}.`,
+  );
   box.classList.add("waiting");
   show(header(silo), box);
 }
 
 async function fill(ref: string): Promise<void> {
-  renderWaiting();
+  renderWaiting("fill");
   const result = await ask<FillResult>({ kind: "fill", tabId, ref, origin: listOrigin });
   await ask({ kind: "seen", tabId });
   if (!result) {

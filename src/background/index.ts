@@ -43,7 +43,7 @@ const service = new Service({
       if (documentId) return { outcome: "wrong-origin" };
       throw error;
     }
-    if (!args.fill && frame?.documentId) probed.set(tabId, frame.documentId);
+    if (!args.fill && !args.read && frame?.documentId) probed.set(tabId, frame.documentId);
     return frame?.result as PageResult | undefined;
   },
   flag: (tabId, on) => {
@@ -77,6 +77,8 @@ async function handle(message: PopupRequest): Promise<unknown> {
       return service.fill(message.tabId, message.ref, message.origin);
     case "show":
       return service.show();
+    case "save":
+      return service.save(message.tabId, message.origin);
     case "seen":
       service.seen(message.tabId);
       return null;

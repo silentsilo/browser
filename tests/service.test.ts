@@ -5,6 +5,7 @@ import type { RequestBody } from "../src/background/protocol";
 import { Service, TEXT } from "../src/background/service";
 import { isAtLeast } from "../src/background/version";
 import type { FillArgs, FillResult } from "../src/page/fill-page";
+import { MAX_SAVE_FIELD } from "../src/background/service";
 
 type Answer = Record<string, unknown> | ClientError;
 
@@ -13,7 +14,11 @@ function setup(answers: Partial<Record<RequestBody["type"], Answer>>, url = "htt
   const pageCalls: FillArgs[] = [];
   const flags: boolean[] = [];
   let pageResult: (args: FillArgs) => FillResult = (args) =>
-    args.fill ? { outcome: "filled", usernameFilled: true } : { outcome: "ready" };
+    args.read
+      ? { outcome: "read", username: "alex@example.com", password: "hunter2" }
+      : args.fill
+        ? { outcome: "filled", usernameFilled: true }
+        : { outcome: "ready" };
   const service = new Service({
     client: {
       request: async (body: RequestBody) => {
@@ -56,8 +61,9 @@ describe("opening the popup", () => {
       site: "github.com",
       silo: "Personal",
       logins: githubLogins.logins,
-      waiting: false,
+      waiting: null,
       notice: undefined,
+      canSave: false,
     });
   });
 
@@ -301,11 +307,11 @@ describe("fill", () => {
     });
     const fill = service.fill(3, "r1", GH);
     await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
-    expect(await service.open(3)).toMatchObject({ waiting: true });
-    expect(await service.open(4)).toMatchObject({ waiting: false });
+    expect(await service.open(3)).toMatchObject({ waiting: "fill" });
+    expect(await service.open(4)).toMatchObject({ waiting: null });
     answer({ id: "3", type: "fill", username: "u", password: "p" });
     expect(await fill).toEqual({ ok: true, usernameFilled: true });
-    expect(await service.open(3)).toMatchObject({ waiting: false });
+    expect(await service.open(3)).toMatchObject({ waiting: null });
   });
 
   it("rejects a fill answer without strings", async () => {
@@ -345,5 +351,93 @@ describe("versions", () => {
     ["garbage", false],
   ])("%s speaks the protocol: %s", (version, ok) => {
     expect(isAtLeast(version, "1.2.0")).toBe(ok);
+  });
+});
+
+describe("save", () => {
+  const recent = { ...unlocked, version: "1.4.0" };
+
+  it("is offered by an app from 1.4.0 on", async () => {
+    expect(await setup({ status: recent, logins: githubLogins }).service.open(3)).toMatchObject({ canSave: true });
+    expect(await setup({ status: unlocked, logins: githubLogins }).service.open(3)).toMatchObject({ canSave: false });
+  });
+
+  it("reads the page for the listed origin and offers what it read to the app", async () => {
+    const { service, requests, pageCalls, flags } = setup({ save: { outcome: "saved" } });
+    expect(await service.save(3, GH)).toEqual({ ok: true, updated: false });
+    expect(pageCalls).toEqual([{ expectedOrigin: GH, fill: null, read: true }]);
+    expect(requests).toEqual([{ type: "save", origin: GH, username: "alex@example.com", password: "hunter2" }]);
+    expect(flags).toEqual([]);
+  });
+
+  it("says when an existing login got the new password", async () => {
+    const { service } = setup({ save: { outcome: "updated" } });
+    expect(await service.save(3, GH)).toEqual({ ok: true, updated: true });
+  });
+
+  it("refuses an answer it does not understand", async () => {
+    const { service } = setup({ save: { outcome: "deleted" } });
+    expect(await service.save(3, GH)).toEqual({ ok: false, message: TEXT.badAnswer });
+  });
+
+  it("asks nothing when no password is typed", async () => {
+    const { service, requests, setPage, flags } = setup({});
+    setPage(() => ({ outcome: "no-password", frame: null }));
+    expect(await service.save(3, GH)).toEqual({ ok: false, message: TEXT.nothingTyped });
+    expect(requests).toHaveLength(0);
+    expect(flags).toEqual([true]);
+  });
+
+  it("reads nothing when the tab moved to another origin", async () => {
+    const { service, requests, pageCalls } = setup({}, "https://evil.example/");
+    expect(await service.save(3, GH)).toEqual({ ok: false, message: TEXT.navigatedSave });
+    expect(pageCalls).toHaveLength(0);
+    expect(requests).toHaveLength(0);
+  });
+
+  it("sends nothing longer than the app keeps", async () => {
+    const { service, requests, setPage } = setup({});
+    setPage(() => ({ outcome: "read", username: "u", password: "x".repeat(MAX_SAVE_FIELD + 1) }));
+    expect(await service.save(3, GH)).toEqual({ ok: false, message: TEXT.tooLong });
+    expect(requests).toHaveLength(0);
+  });
+
+  it("leaves no reminder when the person declined", async () => {
+    const { service, flags } = setup({ status: recent, logins: githubLogins, save: new ClientError("cancelled") });
+    expect(await service.save(3, GH)).toEqual({ ok: false, message: TEXT.notSaved });
+    expect(flags).toEqual([]);
+    expect(await service.open(3)).toMatchObject({ notice: undefined });
+  });
+
+  it("keeps a reminder when it failed with the popup closed", async () => {
+    const { service, flags } = setup({ status: recent, logins: githubLogins, save: new ClientError("locked") });
+    const result = await service.save(3, GH);
+    expect(result).toMatchObject({ ok: false, message: "Your silo is locked. Nothing was saved." });
+    expect(flags).toEqual([true]);
+    expect(await service.open(3)).toMatchObject({ notice: "Your silo is locked. Nothing was saved." });
+  });
+
+  it("waits alone: a fill and a save do not wait together", async () => {
+    let answer: (value: Record<string, unknown>) => void = () => {};
+    const request = vi.fn(async (body: RequestBody) => {
+      if (body.type === "status") return { id: "1", type: "status", ...recent };
+      if (body.type === "logins") return { id: "2", type: "logins", logins: [] };
+      return new Promise<Record<string, unknown>>((resolve) => (answer = resolve));
+    });
+    const service = new Service({
+      client: { request },
+      tabUrl: async () => "https://github.com/",
+      runInPage: async (_tab, args) =>
+        args.read ? { outcome: "read", username: "u", password: "p" } : { outcome: "ready" },
+      flag: () => {},
+    });
+    const save = service.save(3, GH);
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+    expect(await service.open(3)).toMatchObject({ waiting: "save" });
+    expect(await service.save(3, GH)).toEqual({ ok: false, message: TEXT.alreadyWaiting });
+    expect(await service.fill(4, "r1", GH)).toEqual({ ok: false, message: TEXT.otherTabWaiting });
+    answer({ id: "3", type: "save", outcome: "saved" });
+    expect(await save).toEqual({ ok: true, updated: false });
+    expect(await service.open(3)).toMatchObject({ waiting: null });
   });
 });

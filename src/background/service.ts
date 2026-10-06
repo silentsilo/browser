@@ -1,8 +1,15 @@
-import { queryTooShort, type FillResult, type SearchResult, type ShowResult, type View } from "../shared/messages";
+import {
+  queryTooShort,
+  type FillResult,
+  type SaveResult,
+  type SearchResult,
+  type ShowResult,
+  type View,
+} from "../shared/messages";
 import type { FillArgs, FillResult as PageResult } from "../page/fill-page";
 import { ClientError, type NativeClient } from "./native-client";
 import { fillableOrigin, siteName } from "./origin";
-import { MIN_APP_VERSION, type LoginSummary } from "./protocol";
+import { MIN_APP_VERSION, SAVE_APP_VERSION, type LoginSummary } from "./protocol";
 import { isAtLeast } from "./version";
 
 export const QUICK_TIMEOUT_MS = 10_000;
@@ -10,6 +17,10 @@ export const QUICK_TIMEOUT_MS = 10_000;
 // backstop for an app that never answers at all.
 export const FILL_TIMEOUT_MS = 5 * 60_000;
 export const MAX_QUERY_LENGTH = 200;
+// The app waits 120 seconds for the person; this is the backstop.
+export const SAVE_TIMEOUT_MS = 3 * 60_000;
+// What the app takes in a save.
+export const MAX_SAVE_FIELD = 1024;
 
 export interface ServiceDeps {
   client: Pick<NativeClient, "request">;
@@ -45,14 +56,21 @@ export const TEXT = {
   badRequest: "SilentSilo refused the request. If this keeps happening, update SilentSilo and this extension.",
   readFailed: "SilentSilo could not read the logins in this silo. Try again, or restart SilentSilo.",
   unknownCode: "SilentSilo refused the request for a reason this extension does not know. Update both to the latest version.",
-  alreadyWaiting: "A fill is already waiting for confirmation.",
+  alreadyWaiting: "This tab is already waiting for confirmation in SilentSilo.",
+  nothingTyped:
+    "No password is typed on this page. Type it in the login form and save before you sign in. " +
+    "If you already signed in, add the login in SilentSilo.",
+  tooLong: "That password or username is longer than SilentSilo keeps. Add the login in SilentSilo instead.",
+  notSaved: "Not saved. Nothing was written to your silo.",
+  cannotSave: "Logins can be saved from https pages, and http pages on this computer only.",
+  navigatedSave: "The page changed before the save. Nothing was saved.",
   otherTabWaiting:
-    "A fill on another tab is waiting for confirmation in SilentSilo. Confirm or cancel it there, then try again.",
+    "Another tab is waiting for confirmation in SilentSilo. Confirm or cancel it there, then try again.",
 };
 
 export class Service {
-  // Tabs with a fill waiting for confirmation in the app.
-  private waiting = new Set<number>();
+  // Tabs with a fill or a save waiting for confirmation in the app.
+  private waiting = new Map<number, "fill" | "save">();
   // How a fill ended when the popup may have been closed, and the origin it
   // was for. Never a secret.
   private notices = new Map<number, { origin: string; message: string }>();
@@ -87,8 +105,9 @@ export class Service {
         site: siteName(origin),
         silo: typeof status.silo === "string" ? status.silo : undefined,
         logins,
-        waiting: this.waiting.has(tabId),
+        waiting: this.waiting.get(tabId) ?? null,
         notice,
+        canSave: isAtLeast(version, SAVE_APP_VERSION),
       };
     } catch (error) {
       return errorView(error);
@@ -129,6 +148,53 @@ export class Service {
     return result;
   }
 
+  // "Save this login": reads what is typed on the page the list was built
+  // for, and offers it to the app, which asks the person. The two values
+  // are dropped here once sent.
+  async save(tabId: number, listed: string): Promise<SaveResult> {
+    const result = await this.saveOnce(tabId, listed);
+    // A declined save needs no reminder: the person chose it.
+    if (!result.ok && result.message !== TEXT.notSaved) {
+      this.notices.set(tabId, { origin: listed, message: result.message });
+      this.deps.flag(tabId, true);
+    }
+    return result;
+  }
+
+  private async saveOnce(tabId: number, listed: string): Promise<SaveResult> {
+    const origin = fillableOrigin(await this.deps.tabUrl(tabId));
+    if (!origin) return { ok: false, message: TEXT.cannotSave };
+    if (origin !== listed) return { ok: false, message: TEXT.navigatedSave };
+    if (this.waiting.has(tabId)) return { ok: false, message: TEXT.alreadyWaiting };
+    if (this.waiting.size > 0) return { ok: false, message: TEXT.otherTabWaiting };
+
+    const read = await this.inPage(tabId, { expectedOrigin: origin, fill: null, read: true });
+    if (read.outcome === "wrong-origin") return { ok: false, message: TEXT.navigatedSave };
+    if (read.outcome !== "read") return { ok: false, message: TEXT.nothingTyped };
+    const login = { username: read.username, password: read.password };
+    read.username = read.password = "";
+    if (login.username.length > MAX_SAVE_FIELD || login.password.length > MAX_SAVE_FIELD) {
+      login.username = login.password = "";
+      return { ok: false, message: TEXT.tooLong };
+    }
+
+    this.waiting.set(tabId, "save");
+    try {
+      const answer = await this.deps.client.request({ type: "save", origin, ...login }, SAVE_TIMEOUT_MS);
+      if (answer.outcome !== "saved" && answer.outcome !== "updated") {
+        return { ok: false, message: TEXT.badAnswer };
+      }
+      return { ok: true, updated: answer.outcome === "updated" };
+    } catch (error) {
+      if (error instanceof ClientError && error.code === "cancelled") return { ok: false, message: TEXT.notSaved };
+      const view = errorView(error);
+      return { ok: false, message: view.state === "error" ? view.message : saveStopped(view.state), view };
+    } finally {
+      login.username = login.password = "";
+      this.waiting.delete(tabId);
+    }
+  }
+
   // Called when the popup that asked for the fill got its answer.
   seen(tabId: number): void {
     this.notices.delete(tabId);
@@ -154,7 +220,7 @@ export class Service {
     if (this.waiting.has(tabId)) return { ok: false, message: TEXT.alreadyWaiting };
     // The app would answer busy; this says why.
     if (this.waiting.size > 0) return { ok: false, message: TEXT.otherTabWaiting };
-    this.waiting.add(tabId);
+    this.waiting.set(tabId, "fill");
     let answer: Record<string, unknown>;
     try {
       answer = await this.deps.client.request({ type: "fill", origin, ref }, FILL_TIMEOUT_MS);
@@ -193,7 +259,13 @@ function fillStopped(state: View["state"]): string {
   return TEXT.generic;
 }
 
-function pageFailure(result: PageResult | { outcome: "unreachable" }): FillResult {
+function saveStopped(state: View["state"]): string {
+  if (state === "locked") return "Your silo is locked. Nothing was saved.";
+  if (state === "app-not-running") return "SilentSilo is not reachable. Nothing was saved.";
+  return "Something went wrong. Nothing was saved.";
+}
+
+function pageFailure(result: PageResult | { outcome: "unreachable" }): Extract<FillResult, { ok: false }> {
   switch (result.outcome) {
     case "no-password":
       if (result.frame === "this-site") return { ok: false, message: TEXT.sameOriginFrame };

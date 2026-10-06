@@ -47,7 +47,12 @@ async function openPopup(
   const service = new Service({
     client,
     tabUrl: async () => url,
-    runInPage: async (_tab, args) => (args.fill ? { outcome: "filled", usernameFilled: true } : { outcome: "ready" }),
+    runInPage: async (_tab, args) =>
+      args.read
+        ? { outcome: "read", username: "alex", password: "hunter2" }
+        : args.fill
+          ? { outcome: "filled", usernameFilled: true }
+          : { outcome: "ready" },
     flag: () => {},
   });
   const handle = async (request: PopupRequest): Promise<unknown> => {
@@ -63,6 +68,8 @@ async function openPopup(
         return null;
       case "show":
         return service.show();
+      case "save":
+        return service.save(request.tabId, request.origin);
     }
   };
   vi.stubGlobal("chrome", {
@@ -490,6 +497,59 @@ describe("a popup left open", () => {
     const after = asked;
     await vi.advanceTimersByTimeAsync(10_000);
     expect(asked).toBe(after);
+    client.close();
+  });
+});
+
+describe("saving a login", () => {
+  const recent = { ...unlocked, version: "1.4.0" };
+  const listed = { type: "logins", logins: [{ ref: "r1", label: "GitHub", username: "alex" }] };
+
+  it("is not offered by an app before 1.4.0", async () => {
+    const client = await openPopup((request) => (request.type === "status" ? unlocked : listed));
+    expect(text()).not.toContain("Save this login");
+    client.close();
+  });
+
+  it.each([
+    ["saved", "Saved"],
+    ["updated", "Password updated"],
+  ])("sends what the page holds and shows %s", async (outcome, title) => {
+    const sent: Record<string, unknown>[] = [];
+    const client = await openPopup((request) => {
+      if (request.type === "status") return recent;
+      if (request.type === "logins") return listed;
+      sent.push(request);
+      return { type: "save", outcome };
+    });
+    button("Save this login").click();
+    await vi.waitFor(() => expect(text()).toContain(title));
+    expect(sent).toMatchObject([{ type: "save", origin: "https://github.com", username: "alex", password: "hunter2" }]);
+    expect(document.body.innerHTML).not.toContain("hunter2");
+    client.close();
+  });
+
+  it("is offered on a site with nothing saved too", async () => {
+    const client = await openPopup((request) => {
+      if (request.type === "status") return recent;
+      if (request.type === "logins") return { type: "logins", logins: [] };
+      return { type: "save", outcome: "saved" };
+    });
+    expect(text()).toContain("Nothing saved for this site");
+    button("Save this login").click();
+    await vi.waitFor(() => expect(text()).toContain("is in your silo"));
+    client.close();
+  });
+
+  it("says nothing was saved when the person declined", async () => {
+    const client = await openPopup((request) => {
+      if (request.type === "status") return recent;
+      if (request.type === "logins") return listed;
+      return { type: "error", code: "cancelled", message: HOSTILE };
+    });
+    button("Save this login").click();
+    await vi.waitFor(() => expect(text()).toContain(TEXT.notSaved));
+    expect(document.body.innerHTML).not.toContain("SUPPORT");
     client.close();
   });
 });

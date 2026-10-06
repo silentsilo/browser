@@ -3,16 +3,20 @@
 // refer to anything outside its own body.
 //
 // It looks at the page's input fields and nothing else: their type, whether
-// they can be seen, and which form they belong to. It never reads what is
-// typed in them or any other text on the page. When the top frame has no
-// password field it checks whether a frame holds one, and fills nothing
-// there. With `fill` set it writes the two values and returns; without it,
-// it only reports whether it could.
+// they can be seen, and which form they belong to. It reads what is typed
+// in them only with `read` set, on the person's click on "Save this login",
+// and then only the password field and the username field before it; never
+// any other text on the page. When the top frame has no password field it
+// checks whether a frame holds one, and fills nothing there. With `fill` set
+// it writes the two values and returns; without either, it only reports
+// whether it could.
 
 export interface FillArgs {
   // The origin the person confirmed. A page that navigated since gets nothing.
   expectedOrigin: string;
   fill: { username: string; password: string } | null;
+  // Return what is typed in the login form instead of writing to it.
+  read?: boolean;
 }
 
 export type FillResult =
@@ -23,7 +27,9 @@ export type FillResult =
   // `host` names it, empty when the address is not a web one.
   | { outcome: "elsewhere"; host: string }
   | { outcome: "ready" }
-  | { outcome: "filled"; usernameFilled: boolean };
+  | { outcome: "filled"; usernameFilled: boolean }
+  // What the person typed, for saving. `username` may be empty.
+  | { outcome: "read"; username: string; password: string };
 
 export function fillPage(args: FillArgs): FillResult {
   if (location.origin !== args.expectedOrigin) return { outcome: "wrong-origin" };
@@ -178,6 +184,27 @@ export function fillPage(args: FillArgs): FillResult {
     return (input.getAttribute("autocomplete") ?? "").toLowerCase().split(/\s+/).includes(token);
   }
 
+  // The text or email field before the password, in the same form, or before
+  // it on the page when there is no form.
+  function usernameBefore(password: HTMLInputElement): HTMLInputElement | undefined {
+    const textTypes = ["text", "email", "tel"];
+    const root = password.getRootNode();
+    const before = inputs.filter(
+      (input) =>
+        input.getRootNode() === root &&
+        input.form === password.form &&
+        textTypes.includes(input.type) &&
+        !input.closest("[role=search]") &&
+        usable(input) &&
+        (input.compareDocumentPosition(password) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+    );
+    return (
+      before.find((input) => wants(input, "username")) ??
+      before.find((input) => wants(input, "email")) ??
+      before[before.length - 1]
+    );
+  }
+
   const inputs = allInputs(document);
   // Whether the browser laid the page out at all. Not the root element's
   // width, which the page's own style can set to zero.
@@ -186,6 +213,22 @@ export function fillPage(args: FillArgs): FillResult {
     return rect.width > 0 || rect.height > 0;
   });
   const passwords = inputs.filter((input) => input.type === "password" && usable(input));
+
+  // Saving reads what the person typed, wherever the form sends it: the
+  // values go to the app, not to the form. The field they are in, or the
+  // first that holds something.
+  if (args.read) {
+    const typed = passwords.filter((input) => input.value !== "");
+    const chosen =
+      typed.find((input) => document.activeElement === input) ??
+      typed.find((input) => wants(input, "current-password")) ??
+      typed.find((input) => wants(input, "new-password")) ??
+      typed[0];
+    if (!chosen) return { outcome: "no-password", frame: null };
+    const named = usernameBefore(chosen);
+    return { outcome: "read", username: named?.value.trim() ?? "", password: chosen.value };
+  }
+
   const staying = passwords.filter((input) => sendsElsewhere(input) === null);
   const password = staying.find((input) => wants(input, "current-password")) ?? staying[0];
 
@@ -223,23 +266,7 @@ export function fillPage(args: FillArgs): FillResult {
     return { outcome: "no-password", frame: thisSite ? "this-site" : otherSite ? "other-site" : null };
   }
 
-  // The text or email field before the password, in the same form, or before
-  // it on the page when there is no form.
-  const textTypes = ["text", "email", "tel"];
-  const root = password.getRootNode();
-  const before = inputs.filter(
-    (input) =>
-      input.getRootNode() === root &&
-      input.form === password.form &&
-      textTypes.includes(input.type) &&
-      !input.closest("[role=search]") &&
-      usable(input) &&
-      (input.compareDocumentPosition(password) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
-  );
-  const username =
-    before.find((input) => wants(input, "username")) ??
-    before.find((input) => wants(input, "email")) ??
-    before[before.length - 1];
+  const username = usernameBefore(password);
 
   if (!args.fill) return { outcome: "ready" };
 

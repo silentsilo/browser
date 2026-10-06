@@ -316,3 +316,91 @@ describe("setting values the way frameworks notice", () => {
     await act(async () => root?.unmount());
   });
 });
+
+describe("reading for a save", () => {
+  function read() {
+    return fillPage({ expectedOrigin: location.origin, fill: null, read: true });
+  }
+
+  function type(selector: string, text: string): void {
+    (document.querySelector(selector) as HTMLInputElement).value = text;
+  }
+
+  it("reads the typed password and the username before it", () => {
+    page(`<form><input name="u"><input name="p" type="password"></form>`);
+    type("[name=u]", "  alex@example.com ");
+    type("[name=p]", "hunter2");
+    expect(read()).toEqual({ outcome: "read", username: "alex@example.com", password: "hunter2" });
+  });
+
+  it("reads a password alone, as on the second step of a sign-in", () => {
+    page(`<form><input name="p" type="password"></form>`);
+    type("[name=p]", "hunter2");
+    expect(read()).toEqual({ outcome: "read", username: "", password: "hunter2" });
+  });
+
+  it("reads whatever the form sends to: the values go to the app", () => {
+    page(`<form action="https://sso.example.net/login"><input name="u"><input name="p" type="password"></form>`);
+    type("[name=u]", "alex");
+    type("[name=p]", "hunter2");
+    expect(read()).toEqual({ outcome: "read", username: "alex", password: "hunter2" });
+  });
+
+  it("takes the field the person is in", () => {
+    page(`<form><input name="old" type="password" autocomplete="current-password">
+          <input name="new" type="password" autocomplete="new-password"></form>`);
+    type("[name=old]", "old-one");
+    type("[name=new]", "new-one");
+    (document.querySelector("[name=new]") as HTMLInputElement).focus();
+    expect(read()).toMatchObject({ password: "new-one" });
+  });
+
+  it("otherwise takes current-password, then new-password, then the first", () => {
+    page(`<form><input name="a" type="password"><input name="new" type="password" autocomplete="new-password">
+          <input name="cur" type="password" autocomplete="current-password"></form>`);
+    type("[name=a]", "first");
+    type("[name=new]", "new-one");
+    type("[name=cur]", "current");
+    expect(read()).toMatchObject({ password: "current" });
+    type("[name=cur]", "");
+    expect(read()).toMatchObject({ password: "new-one" });
+  });
+
+  it("skips an empty password field for one that holds a value", () => {
+    page(`<form><input name="a" type="password"></form><form><input name="b" type="password"></form>`);
+    type("[name=b]", "typed");
+    expect(read()).toMatchObject({ password: "typed" });
+  });
+
+  it("reports no password when nothing is typed", () => {
+    page(`<form><input name="u"><input name="p" type="password"></form>`);
+    type("[name=u]", "alex");
+    expect(read()).toEqual({ outcome: "no-password", frame: null });
+  });
+
+  it("skips a hidden field that holds a value", () => {
+    page(`<form><input name="u"><input class="d" type="password" style="display:none" value="planted">
+          <input name="p" type="password"></form>`);
+    expect(read()).toEqual({ outcome: "no-password", frame: null });
+    type("[name=p]", "hunter2");
+    expect(read()).toMatchObject({ password: "hunter2" });
+  });
+
+  it("reads nothing on another origin", () => {
+    page(`<form><input name="p" type="password"></form>`);
+    type("[name=p]", "hunter2");
+    expect(fillPage({ expectedOrigin: "https://github.com", fill: null, read: true })).toEqual({
+      outcome: "wrong-origin",
+    });
+  });
+
+  it("changes nothing in the page", () => {
+    page(`<form id="f"><input name="u"><input name="p" type="password"></form>`);
+    type("[name=u]", "alex");
+    type("[name=p]", "hunter2");
+    const before = document.body.innerHTML;
+    read();
+    expect(document.body.innerHTML).toBe(before);
+    expect(value("[name=p]")).toBe("hunter2");
+  });
+});

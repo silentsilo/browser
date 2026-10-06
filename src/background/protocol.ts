@@ -7,6 +7,10 @@ export const HOST_NAME = "com.silentsilo.desktop";
 // take it from here too.
 export const MIN_APP_VERSION = "1.2.0";
 
+// The lowest desktop version that answers `save`. An older one answers
+// `bad-request`, so the popup does not offer saving there.
+export const SAVE_APP_VERSION = "1.4.0";
+
 export type SiloState = "unlocked" | "locked" | "no-silo";
 
 export interface LoginSummary {
@@ -24,7 +28,9 @@ export type Request =
   | { id: string; type: "search"; query: string }
   | { id: string; type: "fill"; origin: string; ref: string }
   // Brings the app's window forward. Asks for nothing and gets nothing.
-  | { id: string; type: "show" };
+  | { id: string; type: "show" }
+  // Offers one login the person typed to the app, which asks them first.
+  | { id: string; type: "save"; origin: string; username: string; password: string };
 
 // A request before the client gives it an id.
 export type RequestBody = Request extends infer R ? (R extends Request ? Omit<R, "id"> : never) : never;
@@ -48,6 +54,12 @@ export interface FillAnswer {
   type: "fill";
   username: string;
   password: string;
+}
+
+export interface SaveAnswer {
+  id: string;
+  type: "save";
+  outcome: "saved" | "updated";
 }
 
 export interface ShowAnswer {

@@ -159,12 +159,14 @@ never markup.
 Since 0.2 the extension can save a login from the page, on the person's
 click and never by itself.
 
-- **Started by a click, read once.** The popup offers "Save this login" on
-  a page with a password field that holds a value. Clicking it injects one
+- **Started by a click, read once.** The popup offers "Save this login"
+  under the list when the app is 1.4.0 or later. Nothing is read to decide
+  whether to show it. Clicking it injects one
   function, through `activeTab`, in the top frame and the isolated world,
-  as for a fill. It reads the password field the person typed in and the
-  username field before it, skipping fields that are hidden or covered, as
-  a fill does. Where the form sends does not matter here: the values are
+  as for a fill. It reads the password field the person typed in (the one
+  with focus, else the one marked `current-password`, then `new-password`,
+  then the first that holds a value) and the username field before it,
+  skipping fields that are hidden or covered, as a fill does. Where the form sends does not matter here: the values are
   what the person typed, and they go to the app, not to the form. It returns
   the two values and keeps nothing.
 - **Nothing in the page.** No content script, no banner, no button drawn
@@ -181,8 +183,8 @@ click and never by itself.
   is asked: saving reveals nothing, and the dialog is the confirmation.
 - **What it cannot do.** Detect a login on its own, or save after the page
   has moved on: the person clicks before submitting. When the page has no
-  password left, the popup says so and points to adding the login in the
-  app.
+  password typed, the popup says so and points to adding the login in the
+  app. A form inside a frame is not read.
 
 Detecting submissions, as Bitwarden and KeePassXC-Browser do, needs a
 content script on every page and the permission to read and change all

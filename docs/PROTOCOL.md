@@ -196,8 +196,7 @@ The extension sends the two values once and drops them. The app holds them
 only in the dialog and writes them, sealed, when the person presses Save.
 
 An app before 1.4.0 answers `save` with `bad-request`. The extension checks
-`status.version` first and, below 1.4.0, offers no save and says which
-version adds it.
+`status.version` first and, below 1.4.0, offers no save.
 
 ### show
 

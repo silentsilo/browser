@@ -23,6 +23,13 @@ app with Windows Hello or your security key. The extension then writes the
 username and password into the fields you are looking at. It does not keep
 or store them.
 
+It can also save a login. Type it in the page's login form, open the
+extension and click "Save this login in SilentSilo" before you sign in. The
+extension reads the password field and the username before it, sends both
+to the app and drops them; the app asks you whether to save, and offers to
+update the password when that login is already there. This needs the
+desktop app 1.4.0 or later.
+
 Pages cannot talk to the extension: it has no content script, and its
 background script answers only its own popup. A program running as you on
 this computer can reach the desktop app the way the extension does and ask

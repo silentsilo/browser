@@ -1,6 +1,7 @@
 // What the popup and the service worker say to each other. Nothing secret
 // crosses here: labels and usernames on the way to the popup, a ref on the
-// way back. The password goes from the service worker to the page only.
+// way back. A password goes from the service worker to the page for a fill,
+// and from the page to the service worker for a save, never to the popup.
 
 import type { LoginSummary } from "../background/protocol";
 
@@ -22,7 +23,9 @@ export type PopupRequest =
   // "Open SilentSilo": the app's window to the front, to unlock there.
   | { kind: "show" }
   // The popup showed how the fill ended, so nothing needs to wait for it.
-  | { kind: "seen"; tabId: number };
+  | { kind: "seen"; tabId: number }
+  // "Save this login": what is typed on the page, offered to the app.
+  | { kind: "save"; tabId: number; origin: string };
 
 export type View =
   | { state: "no-host" }
@@ -39,15 +42,19 @@ export type View =
       site: string;
       silo?: string;
       logins: LoginSummary[];
-      // A fill for this tab is waiting for confirmation in the app.
-      waiting: boolean;
+      // A fill or a save for this tab is waiting for confirmation in the app.
+      waiting: "fill" | "save" | null;
       // How the last fill on this tab ended, when the popup was closed then.
       notice?: string;
+      // The app is recent enough to save a login from the page.
+      canSave: boolean;
     };
 
 export type SearchResult = { state: "results"; logins: LoginSummary[] } | Exclude<View, { state: "ready" }>;
 
 export type ShowResult = { state: "shown" } | Exclude<View, { state: "ready" }>;
+
+export type SaveResult = { ok: true; updated: boolean } | { ok: false; message: string; view?: View };
 
 export type FillResult =
   | { ok: true; usernameFilled: boolean }
