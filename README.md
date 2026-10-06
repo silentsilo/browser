@@ -1,8 +1,8 @@
 # SilentSilo browser extension
 
 Fills logins from a SilentSilo silo into the browser. It works with the
-SilentSilo desktop app on Windows, version 1.2.0 or later, running on the
-same computer.
+SilentSilo desktop app running on the same computer: on Windows, version
+1.2.0 or later, and on Linux, version 1.4.0 or later.
 
 Not released yet. The store listings wait for SilentSilo 1.2.0, the first
 desktop release that answers the extension. The Chrome Web Store has
@@ -51,9 +51,11 @@ One codebase, Manifest V3, two builds.
   runs a service worker.
 - **Safari**: not planned. It needs a Mac to build and sign.
 
-Windows only for now: the desktop app's native host, which the browser
-talks to, is built for Windows. Each browser finds it through its own
-native host registration, which the desktop installer writes. Nothing for
+Windows and Linux for now: the desktop app's native host, which the
+browser talks to, is built for those two. Each browser finds it through its
+own native host registration: on Windows the desktop installer writes it, on
+Linux the desktop app writes it in your home when you turn the extension on
+in its Settings. Nothing for
 mobile browsers: the Android app fills logins through the system's own
 autofill instead.
 

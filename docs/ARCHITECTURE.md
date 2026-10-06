@@ -217,8 +217,11 @@ inside the page, so each of them is a change to this document first.
 ## Browsers and stores
 
 Manifest V3 throughout, one source, two builds. The desktop side (the
-native host and the pipe) exists on Windows only for now, so the extension
-does too, whatever browser it runs in. Chrome and Edge share the
+native host and the channel to the app) exists on Windows and, from desktop
+1.4, on Linux, where the channel is a Unix socket in the user's runtime
+directory instead of a named pipe; the checks on each end are in the
+desktop repository's `docs/ARCHITECTURE.md`. The extension itself is the
+same build on both. Chrome and Edge share the
 Chrome build and one native host manifest format; Brave installs the same
 build from the Chrome Web Store. Firefox gets its own build, which differs
 only in the manifest: the background script runs as an event page instead of
