@@ -107,7 +107,7 @@ function somethingWrong(body = "Close this and try again."): void {
 const STATE_TEXT: Record<string, [string, string]> = {
   "no-host": [
     "SilentSilo is not installed",
-    `SilentSilo ${MIN_APP_VERSION} or later needs to be installed on this computer. If it already is, run its installer again.`,
+    `SilentSilo ${MIN_APP_VERSION} or later needs to be on this computer, with Settings > Browser extension turned on in it. If both are, run its installer again on Windows.`,
   ],
   "app-not-running": [
     "SilentSilo is not reachable",

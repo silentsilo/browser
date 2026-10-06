@@ -153,6 +153,7 @@ describe("error answers", () => {
     expect(text()).toContain("SilentSilo is not installed");
     expect(text()).toContain("SilentSilo 1.2.0 or later");
     expect(text()).toContain("run its installer again");
+    expect(text()).toContain("Settings > Browser extension turned on");
     client.close();
   });
 
