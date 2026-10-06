@@ -54,7 +54,7 @@ host and the app.
 
 Passwords only. There is no message for files, folders, attachments, notes,
 one-time codes or passkeys, and the app answers any `type` not listed below
-with `bad-request`. Adding one would be a change to the threat model, which
+with `bad-request`, which is how an app older than a message refuses it. Adding one would be a change to the threat model, which
 starts in ARCHITECTURE.md.
 
 `show` is the one request that is not about passwords. It is allowed because
@@ -165,6 +165,39 @@ The app waits 90 seconds for the confirmation, prompt included, then answers
 The extension writes the two values into the fields and drops them. It does
 not keep or store them, never sends them anywhere else and never logs them.
 Copies may stay in the browser's memory until garbage collection.
+
+### save
+
+Offers one login to the app, which asks the person whether to keep it. Sent
+only after a click on "Save this login" in the popup, with what the page
+function read from the tab the popup was opened on.
+
+```json
+{ "id": "6", "type": "save", "origin": "https://github.com",
+  "username": "alex@example.com", "password": "…" }
+{ "id": "6", "type": "save", "outcome": "saved" }
+```
+
+- `origin` follows the rules of `logins`: only `https:` and loopback.
+  Anything else answers `bad-request` before anything is shown.
+- `username` may be empty; `password` may not. Both are at most 1024
+  characters.
+- The app shows its own dialog (`BrowserSaveDialog`), naming the site, with
+  the username and a label to edit. When a login for this site and username
+  is already in the silo, it offers to update that one instead.
+- `outcome` is `saved` (a new login) or `updated` (the password of one
+  already there changed; the old one is in its history). The person
+  declining, or no answer within 120 seconds, is `cancelled`.
+- One save waits at a time, and a fill and a save do not wait together:
+  a second answers `busy`. A `save` counts against the rations of
+  `logins`.
+
+The extension sends the two values once and drops them. The app holds them
+only in the dialog and writes them, sealed, when the person presses Save.
+
+An app before 1.4.0 answers `save` with `bad-request`. The extension checks
+`status.version` first and, below 1.4.0, offers no save and says which
+version adds it.
 
 ### show
 

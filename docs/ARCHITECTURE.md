@@ -8,7 +8,8 @@ described here updates this page in the same commit.
 **The extension holds nothing.** No key, no list of logins, no cache of
 any of them. The one password it receives for a fill it writes into the
 page and then drops: it does not keep or store it, and never sends it
-anywhere else. Copies can stay in the browser's memory until the garbage
+anywhere else. The one password it reads from a page to save, on the
+person's click, it sends to the app and then drops the same way. Copies can stay in the browser's memory until the garbage
 collector reclaims them, because JavaScript gives no way to wipe a string.
 The browser is the most attacked program on the computer, with a hostile
 page in every tab, and an extension is one more thing in it. The only way to make a
@@ -17,7 +18,8 @@ taking.
 
 **The extension reaches passwords only.** It can ask for logins (label,
 username, the site they were saved for) and, after a confirmed fill, one
-password. Beyond that it can ask the app to bring its window to the front
+password. It can offer the app one login to save, which the person then
+confirms or drops in the app. Beyond that it can ask the app to bring its window to the front
 (`show`), so a locked silo can be unlocked there; that answer carries
 nothing, and the unlock stays in the app. It cannot list, read or name files, folders, attachments, notes,
 one-time codes or passkeys. The desktop app enforces this: the handlers that
@@ -152,6 +154,41 @@ never markup.
   other sites come back without a prompt, to anything that can ask. The app
   rations search, so listing a whole silo that way takes most of an hour.
 
+## Saving
+
+Since 0.2 the extension can save a login from the page, on the person's
+click and never by itself.
+
+- **Started by a click, read once.** The popup offers "Save this login" on
+  a page with a password field that holds a value. Clicking it injects one
+  function, through `activeTab`, in the top frame and the isolated world,
+  as for a fill. It reads the password field the person typed in and the
+  username field before it, skipping fields that are hidden or covered, as
+  a fill does. Where the form sends does not matter here: the values are
+  what the person typed, and they go to the app, not to the form. It returns
+  the two values and keeps nothing.
+- **Nothing in the page.** No content script, no banner, no button drawn
+  over the page. A page cannot hide or fake what it never contains, which
+  is what DOM-based extension clickjacking (DEF CON 33, 2025) turned
+  against every password manager that draws into the page.
+- **Confirmed in the app.** The background script sends one `save`. The
+  app brings its window forward with its own dialog, naming the site and
+  showing the username and a label, both editable, since a sign-in in two
+  steps has no username field on the password page. When a login for this
+  site and username is already in the silo, the dialog says so and offers
+  to update it; the old password goes into the entry's history. Nothing is
+  written until the person presses Save. No Windows Hello or security key
+  is asked: saving reveals nothing, and the dialog is the confirmation.
+- **What it cannot do.** Detect a login on its own, or save after the page
+  has moved on: the person clicks before submitting. When the page has no
+  password left, the popup says so and points to adding the login in the
+  app.
+
+Detecting submissions, as Bitwarden and KeePassXC-Browser do, needs a
+content script on every page and the permission to read and change all
+sites, which the store reviews at length and a hostile page can work
+against. It stays out unless this section changes first.
+
 ## Confirmation
 
 Every fill is confirmed in the app, not in the extension. The app brings
@@ -167,7 +204,8 @@ drawn inside the browser, which is what we do not trust.
 
 ## What the first version does not do
 
-- Save a login from a page. The app is where logins are made.
+- Save a login without a click. Saving is the person's choice, made on
+  the page they are on (see Saving).
 - Fill anything but a username and a password. No cards, no addresses.
 - Watch the page. No form detection on load, no scanning; the user clicks
   the button.
