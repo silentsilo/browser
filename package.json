@@ -35,9 +35,11 @@
     "typescript-eslint": "8.70.0",
     "vite": "7.3.6",
     "vitest": "4.1.11",
-    "web-ext": "10.6.0"
+    "web-ext": "10.7.0"
   },
   "overrides": {
-    "image-size": "2.0.4"
+    "image-size": "2.0.4",
+    "shell-quote": "1.12.0",
+    "source-map-js": "1.2.2"
   }
 }

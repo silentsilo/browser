@@ -34,3 +34,5 @@ jobs:
       # Both store zips, which refuse to carry the dev key.
       - run: npm run package
       - run: npm run lint:firefox
+      # High and critical npm advisories, with reasoned ignores in the script.
+      - run: node scripts/npm-audit.mjs
