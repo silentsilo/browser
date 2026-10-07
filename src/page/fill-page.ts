@@ -29,7 +29,10 @@ export type FillResult =
   | { outcome: "ready" }
   | { outcome: "filled"; usernameFilled: boolean }
   // What the person typed, for saving. `username` may be empty.
-  | { outcome: "read"; username: string; password: string };
+  | { outcome: "read"; username: string; password: string }
+  // Different passwords typed in several fields, and none of them is the
+  // one the person is in: which to save cannot be told.
+  | { outcome: "several" };
 
 export function fillPage(args: FillArgs): FillResult {
   if (location.origin !== args.expectedOrigin) return { outcome: "wrong-origin" };
@@ -218,12 +221,23 @@ export function fillPage(args: FillArgs): FillResult {
   // values go to the app, not to the form. The field they are in, or the
   // first that holds something.
   if (args.read) {
-    const typed = passwords.filter((input) => input.value !== "");
-    const chosen =
-      typed.find((input) => document.activeElement === input) ??
-      typed.find((input) => wants(input, "current-password")) ??
-      typed.find((input) => wants(input, "new-password")) ??
-      typed[0];
+    // A field a "show password" button turned into text still says what it
+    // is for when the page marks it.
+    const shown = inputs.filter(
+      (input) =>
+        input.type === "text" &&
+        usable(input) &&
+        (wants(input, "current-password") || wants(input, "new-password")),
+    );
+    const typed = [...passwords, ...shown].filter((input) => input.value !== "");
+    const focused = typed.find((input) => document.activeElement === input);
+    // Several different values and none the person is in: one of them may
+    // be a field the page put there, so nothing is guessed. A new password
+    // typed twice is one value.
+    if (!focused && new Set(typed.map((input) => input.value)).size > 1) {
+      return { outcome: "several" };
+    }
+    const chosen = focused ?? typed[0];
     if (!chosen) return { outcome: "no-password", frame: null };
     const named = usernameBefore(chosen);
     return { outcome: "read", username: named?.value.trim() ?? "", password: chosen.value };

@@ -235,10 +235,10 @@ as the same user cannot keep raising the window.
 | `app-not-running` | answered by the host: nothing listens on the pipe, or the pipe is not the real app's (another user's, or served by another program) |
 | `locked` | no silo is unlocked |
 | `no-silo` | the app has no silo yet |
-| `unknown-ref` | the ref is stale (the silo locked, or was switched) |
+| `unknown-ref` | the ref is stale (the silo locked, or was switched); for a `save`, the silo locked or was switched while the person was asked |
 | `cancelled` | the person declined or the prompt timed out |
-| `bad-request` | malformed, too large, unknown type, disallowed origin |
-| `busy` | another fill is waiting for confirmation, too many requests (any of `logins`, `search`, `show`, `fill`), a fill was declined or timed out in the last few seconds, or a `show` came within 3 seconds of the last one |
+| `bad-request` | malformed, too large, unknown type, disallowed origin; for a `save`, an empty password, or a username or password over 1024 characters (Unicode scalar values, not UTF-16 units) |
+| `busy` | another fill or save is waiting for confirmation, too many requests (any of `logins`, `search`, `show`, `fill`, `save`), a fill or save was declined or timed out in the last few seconds, or a `show` came within 3 seconds of the last one |
 | `no-authenticator` | the silo has no security key or Windows Hello set up, so no fill can be confirmed |
 | `read-failed` | the silo is unlocked, but the app could not read its logins |
 

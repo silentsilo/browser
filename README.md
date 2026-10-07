@@ -1,13 +1,12 @@
 # SilentSilo browser extension
 
-Fills logins from a SilentSilo silo into the browser. It works with the
-SilentSilo desktop app running on the same computer: on Windows, version
-1.2.0 or later, and on Linux, version 1.4.0 or later.
+Fills logins from a SilentSilo silo into the browser, and saves one you
+type. It works with the SilentSilo desktop app running on the same
+computer: on Windows, version 1.2.0 or later, and on Linux, version 1.4.0
+or later.
 
-Not released yet. The store listings wait for SilentSilo 1.2.0, the first
-desktop release that answers the extension. The Chrome Web Store has
-assigned the extension its id, and addons.mozilla.org holds the Firefox id
-`browser@silentsilo.com`.
+Published on the Chrome Web Store, Firefox Add-ons (id
+`browser@silentsilo.com`) and Microsoft Edge Add-ons.
 
 The desktop application is [silentsilo/desktop](https://github.com/silentsilo/desktop),
 the engine and the formats are [silentsilo/core](https://github.com/silentsilo/core),
@@ -33,8 +32,8 @@ desktop app 1.4.0 or later.
 Pages cannot talk to the extension: it has no content script, and its
 background script answers only its own popup. A program running as you on
 this computer can reach the desktop app the way the extension does and ask
-for a fill. The app shows every fill request, and nothing is sent until you
-confirm it there.
+for a fill, or offer a login to save. The app shows every request, and
+nothing is sent or saved until you confirm it there.
 
 To find the logins for a site, the desktop app decrypts every password entry
 of the open silo in its own memory on each lookup, keeps the label, username
@@ -70,7 +69,8 @@ autofill instead.
 
 - `nativeMessaging`, to talk to the desktop app.
 - `activeTab` and `scripting`, to write into the tab you clicked the button
-  on, only then, and only in its top frame.
+  on, or to read the login typed there when you choose to save it: only
+  then, and only in its top frame.
 
 No access to all sites, no content script, no storage. The popup and the
 service worker load nothing from the network: the manifest's content

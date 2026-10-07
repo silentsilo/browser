@@ -61,7 +61,10 @@ export const TEXT = {
     "No password is typed on this page. Type it in the login form and save before you sign in. " +
     "If you already signed in, add the login in SilentSilo.",
   tooLong: "That password or username is longer than SilentSilo keeps. Add the login in SilentSilo instead.",
-  notSaved: "Not saved. Nothing was written to your silo.",
+  notSaved: "SilentSilo did not save this login from the page.",
+  severalTyped:
+    "More than one password is typed on this page. Click in the one to save, then choose Save this login again.",
+  savedElsewhere: "SilentSilo switched silos or locked before the save. Nothing was saved.",
   cannotSave: "Logins can be saved from https pages, and http pages on this computer only.",
   navigatedSave: "The page changed before the save. Nothing was saved.",
   otherTabWaiting:
@@ -170,10 +173,12 @@ export class Service {
 
     const read = await this.inPage(tabId, { expectedOrigin: origin, fill: null, read: true });
     if (read.outcome === "wrong-origin") return { ok: false, message: TEXT.navigatedSave };
+    if (read.outcome === "several") return { ok: false, message: TEXT.severalTyped };
     if (read.outcome !== "read") return { ok: false, message: TEXT.nothingTyped };
     const login = { username: read.username, password: read.password };
     read.username = read.password = "";
-    if (login.username.length > MAX_SAVE_FIELD || login.password.length > MAX_SAVE_FIELD) {
+    // Counted in characters, as the app counts them, not in UTF-16 units.
+    if ([...login.username].length > MAX_SAVE_FIELD || [...login.password].length > MAX_SAVE_FIELD) {
       login.username = login.password = "";
       return { ok: false, message: TEXT.tooLong };
     }
@@ -187,6 +192,10 @@ export class Service {
       return { ok: true, updated: answer.outcome === "updated" };
     } catch (error) {
       if (error instanceof ClientError && error.code === "cancelled") return { ok: false, message: TEXT.notSaved };
+      // The app's silo changed while it waited: a save, not a list, went stale.
+      if (error instanceof ClientError && error.code === "unknown-ref") {
+        return { ok: false, message: TEXT.savedElsewhere };
+      }
       const view = errorView(error);
       return { ok: false, message: view.state === "error" ? view.message : saveStopped(view.state), view };
     } finally {

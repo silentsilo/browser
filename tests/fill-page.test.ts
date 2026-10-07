@@ -355,15 +355,29 @@ describe("reading for a save", () => {
     expect(read()).toMatchObject({ password: "new-one" });
   });
 
-  it("otherwise takes current-password, then new-password, then the first", () => {
+  it("asks which when different passwords are typed and none is focused", () => {
+    // One of them may be a field the page planted: nothing is guessed.
     page(`<form><input name="a" type="password"><input name="new" type="password" autocomplete="new-password">
           <input name="cur" type="password" autocomplete="current-password"></form>`);
     type("[name=a]", "first");
     type("[name=new]", "new-one");
     type("[name=cur]", "current");
-    expect(read()).toMatchObject({ password: "current" });
-    type("[name=cur]", "");
-    expect(read()).toMatchObject({ password: "new-one" });
+    expect(read()).toEqual({ outcome: "several" });
+  });
+
+  it("reads a new password typed twice as the one it is", () => {
+    page(`<form><input name="new" type="password" autocomplete="new-password">
+          <input name="again" type="password" autocomplete="new-password"></form>`);
+    type("[name=new]", "new-one");
+    type("[name=again]", "new-one");
+    expect(read()).toMatchObject({ outcome: "read", password: "new-one" });
+  });
+
+  it("reads a field the page's show-password button turned into text", () => {
+    page(`<form><input name="u"><input name="p" type="text" autocomplete="current-password"></form>`);
+    type("[name=u]", "alex");
+    type("[name=p]", "hunter2");
+    expect(read()).toEqual({ outcome: "read", username: "alex", password: "hunter2" });
   });
 
   it("skips an empty password field for one that holds a value", () => {

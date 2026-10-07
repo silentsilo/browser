@@ -43,7 +43,8 @@ page  <->  extension (popup + background script)  <->  desktop app (native messa
 
 - **The page** gets exactly one thing: a username and a password written into
   two fields, after the user confirmed. It never gets a list, a message or a
-  script beyond that write. There is no content script: the one function
+  script beyond that write. A save reads from it instead (see Saving), on
+  the user's click, the same way. There is no content script: the one function
   that runs in the page is injected on the user's click, through
   `activeTab`, only in the top frame and in the isolated world, so page
   scripts cannot replace what it calls. In Chrome the fill goes to the
@@ -62,17 +63,21 @@ page  <->  extension (popup + background script)  <->  desktop app (native messa
   has something laid over it, is skipped: hidden, inert or `aria-hidden`
   on it or any parent, no size, off the page, or covered at every point
   tested with `elementFromPoint` (its own label drawn over it is fine).
-- **The extension** asks and writes. It sends the page's origin to the app,
-  shows what the app answers (labels only, never secrets), and on the user's
-  choice asks for one fill. The background script keeps, per tab, how the
+- **The extension** asks, writes and, for a save, reads. It sends the
+  page's origin to the app, shows what the app answers (labels only, never
+  secrets), and on the user's choice asks for one fill or offers one login
+  to save. The background script keeps, per tab, how the
   last fill ended while the popup was closed, with the origin it was for.
   That is never a login, and it goes when the tab closes.
 - **The desktop app** answers. It owns the silo, decides what matches, asks
-  Windows Hello or the security key, and hands over one login for one fill.
+  Windows Hello or the security key, and hands over one login for one fill;
+  a login offered for saving is written only once the person presses Save
+  in its window.
 - **The native messaging host** sits between the browser and the app. It is
   a separate small program, `silentsilo-browser-host` (its own crate in the
   desktop repository), installed beside the app. The browser starts it; it
-  relays messages to the running app over a named pipe and decides nothing.
+  relays messages to the running app over a named pipe on Windows, a Unix
+  socket on Linux, and decides nothing.
 
 ## Matching
 
@@ -163,10 +168,14 @@ click and never by itself.
   under the list when the app is 1.4.0 or later. Nothing is read to decide
   whether to show it. Clicking it injects one
   function, through `activeTab`, in the top frame and the isolated world,
-  as for a fill. It reads the password field the person typed in (the one
-  with focus, else the one marked `current-password`, then `new-password`,
-  then the first that holds a value) and the username field before it,
-  skipping fields that are hidden or covered, as a fill does. Where the form sends does not matter here: the values are
+  as for a fill. It reads the password field the person typed in and the
+  username field before it, skipping fields that are hidden or covered, as
+  a fill does. A text field the page marks `current-password` or
+  `new-password` counts too: a "show password" button turns the field into
+  one. When the fields hold different passwords and the person is in none
+  of them, nothing is read and the popup asks them to click in the one to
+  save: a field planted on the page must not be the one that wins. A new
+  password typed twice is one value. Where the form sends does not matter here: the values are
   what the person typed, and they go to the app, not to the form. It returns
   the two values and keeps nothing.
 - **Nothing in the page.** No content script, no banner, no button drawn
@@ -204,7 +213,7 @@ confirmed fill the app puts its window back the way it was when it was
 hidden or minimised before. A confirmation drawn by the extension would be
 drawn inside the browser, which is what we do not trust.
 
-## What the first version does not do
+## What it does not do
 
 - Save a login without a click. Saving is the person's choice, made on
   the page they are on (see Saving).
