@@ -65,6 +65,13 @@ in its Settings. Nothing for
 mobile browsers: the Android app fills logins through the system's own
 autofill instead.
 
+## Languages
+
+English, Romanian, German, French, Spanish, Italian, Brazilian Portuguese
+and Polish, in the browser's own language. The texts are in
+`_locales/<lang>/messages.json`, each with a note for translators; the
+words follow the desktop app's glossary.
+
 ## What it asks the browser for
 
 - `nativeMessaging`, to talk to the desktop app.

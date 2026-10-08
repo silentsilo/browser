@@ -3,6 +3,7 @@
 
 import { MIN_APP_VERSION } from "../background/protocol";
 import { api } from "../shared/api";
+import { msg, uiLanguage, type MessageKey } from "../shared/i18n";
 import {
   queryTooShort,
   type FillResult,
@@ -16,6 +17,7 @@ import {
 import { sameSite } from "../shared/site";
 
 const root = document.getElementById("app") as HTMLElement;
+document.documentElement.lang = uiLanguage();
 let tabId = -1;
 let site = "";
 // The origin the list on screen was built for. A fill goes there or nowhere.
@@ -71,10 +73,10 @@ function show(...children: Node[]): void {
 // every few seconds and moves on by itself when the answer changes.
 type Waiting = "app-not-running" | "locked" | "no-silo";
 
-const WAITING_FOR: Record<Waiting, string> = {
-  "app-not-running": "Waiting for SilentSilo to start…",
-  locked: "Waiting for the silo to be unlocked…",
-  "no-silo": "Waiting for a silo…",
+const WAITING_FOR: Record<Waiting, MessageKey> = {
+  "app-not-running": "popup_waiting_start",
+  locked: "popup_waiting_unlock",
+  "no-silo": "popup_waiting_silo",
 };
 
 function askAgain(state: Waiting): void {
@@ -103,26 +105,24 @@ function banner(text: string): HTMLElement {
   return box;
 }
 
-function somethingWrong(body = "Close this and try again."): void {
-  show(header(), message("Something went wrong", body, "warn"));
+function somethingWrong(body = msg("popup_error_body")): void {
+  show(header(), message(msg("popup_error_title"), body, "warn"));
 }
 
-const STATE_TEXT: Record<string, [string, string]> = {
-  "no-host": [
-    "SilentSilo is not installed",
-    `SilentSilo ${MIN_APP_VERSION} or later needs to be on this computer, with Settings > Browser extension turned on in it. If both are, run its installer again on Windows.`,
-  ],
-  "app-not-running": [
-    "SilentSilo is not reachable",
-    "Start the SilentSilo desktop app and turn on Settings > Browser extension there.",
-  ],
-  locked: ["Your silo is locked", "Unlock it in SilentSilo."],
-  "no-silo": ["No silo yet", "Create a silo in SilentSilo, or set one up from backup storage."],
-  "unsupported-page": [
-    "This page cannot be filled",
-    "SilentSilo fills https pages, and http pages on this computer only.",
-  ],
-};
+function stateText(state: "no-host" | Waiting | "unsupported-page"): [string, string] {
+  switch (state) {
+    case "no-host":
+      return [msg("popup_no_host_title"), msg("popup_no_host_body", { version: MIN_APP_VERSION })];
+    case "app-not-running":
+      return [msg("popup_not_reachable_title"), msg("popup_not_reachable_body")];
+    case "locked":
+      return [msg("popup_locked_title"), msg("popup_locked_body")];
+    case "no-silo":
+      return [msg("popup_no_silo_title"), msg("popup_no_silo_body")];
+    case "unsupported-page":
+      return [msg("popup_unsupported_title"), msg("popup_unsupported_body")];
+  }
+}
 
 function render(view: View): void {
   if (view.state === "ready") {
@@ -131,23 +131,23 @@ function render(view: View): void {
   }
   if (view.state === "update") {
     // Only a plain version number is echoed back; anything else is left out.
-    const current = /^v?\d{1,4}\.\d{1,4}\.\d{1,4}(-[0-9A-Za-z.]{1,20})?$/.test(view.version)
-      ? `SilentSilo ${view.version} is installed. `
-      : "";
-    show(header(), message("Update SilentSilo", `${current}This extension needs version ${view.required} or later.`, "warn"));
+    const body = /^v?\d{1,4}\.\d{1,4}\.\d{1,4}(-[0-9A-Za-z.]{1,20})?$/.test(view.version)
+      ? msg("popup_update_body_installed", { installed: view.version, required: view.required })
+      : msg("popup_update_body", { required: view.required });
+    show(header(), message(msg("popup_update_title"), body, "warn"));
     return;
   }
   if (view.state === "error") {
     // view.message is always one of the extension's own texts (TEXT in
     // service.ts), never words from the app.
-    show(header(), message("SilentSilo could not list your logins", view.message, "warn"));
+    show(header(), message(msg("popup_list_error_title"), view.message, "warn"));
     return;
   }
-  const [title, body] = STATE_TEXT[view.state];
+  const [title, body] = stateText(view.state);
   const parts: Node[] = [header(), message(title, body, view.state === "unsupported-page" ? "plain" : "warn")];
   if (view.state === "locked" || view.state === "no-silo") parts.push(openApp(view.state));
   if (view.state === "app-not-running" || view.state === "locked" || view.state === "no-silo") {
-    parts.push(el("p", "hint rechecking", WAITING_FOR[view.state]));
+    parts.push(el("p", "hint rechecking", msg(WAITING_FOR[view.state])));
     show(...parts);
     askAgain(view.state);
     return;
@@ -157,16 +157,15 @@ function render(view: View): void {
 
 // The popup may close as the window takes focus; if it stays open, it moves
 // on by itself.
-const AFTER_SHOW: Record<"locked" | "no-silo", string> = {
-  locked: "Unlock your silo in the SilentSilo window. If this closes, click the extension again afterwards.",
-  "no-silo":
-    "Create a silo in the SilentSilo window, or set one up from backup storage. If this closes, click the extension again afterwards.",
+const AFTER_SHOW: Record<"locked" | "no-silo", MessageKey> = {
+  locked: "popup_after_open_locked",
+  "no-silo": "popup_after_open_no_silo",
 };
 
 // Brings the app's window forward. The popup may close as it takes focus.
 function openApp(state: "locked" | "no-silo"): HTMLElement {
   const box = el("div", "open-app");
-  const button = el("button", "action", "Open SilentSilo");
+  const button = el("button", "action", msg("popup_open_app"));
   button.type = "button";
   const note = el("p", "hint");
   note.setAttribute("role", "status");
@@ -175,11 +174,11 @@ function openApp(state: "locked" | "no-silo"): HTMLElement {
     const answer = await ask<ShowResult>({ kind: "show" });
     button.disabled = false;
     if (!answer) {
-      note.textContent = "Something went wrong. Close this and try again.";
+      note.textContent = msg("popup_error_retry_close");
       return;
     }
     if (answer.state === "shown") {
-      note.textContent = AFTER_SHOW[state];
+      note.textContent = msg(AFTER_SHOW[state]);
       return;
     }
     // Busy and the like stay under the button; anything else is a new state.
@@ -206,7 +205,7 @@ function renderReady(view: Extract<View, { state: "ready" }>): void {
   if (view.notice) parts.push(banner(view.notice));
   if (view.logins.length > 0) {
     parts.push(loginList(view.logins));
-    const more = el("button", "link", "Search all logins");
+    const more = el("button", "link", msg("popup_search_all"));
     more.type = "button";
     more.addEventListener("click", () => renderSearch(view.silo, view.notice));
     parts.push(more);
@@ -224,13 +223,9 @@ function renderNoMatch(silo: string | undefined, notice?: string): void {
   const parts: Node[] = [header(silo), siteLine()];
   if (notice) parts.push(banner(notice));
   parts.push(
-    message(
-      "Nothing saved for this site",
-      `Nothing is saved for ${site}. If you expected a login here, check the address: this may not be the site you think.`,
-      "warn",
-    ),
+    message(msg("popup_no_match_title"), msg("popup_no_match_body", { site }), "warn"),
   );
-  const anyway = el("button", "link", "Search anyway");
+  const anyway = el("button", "link", msg("popup_search_anyway"));
   anyway.type = "button";
   anyway.addEventListener("click", () => renderSearch(silo, notice));
   parts.push(anyway);
@@ -243,10 +238,10 @@ function renderNoMatch(silo: string | undefined, notice?: string): void {
 // page and sends it on.
 function saveButton(): HTMLElement {
   const box = el("div", "save");
-  const button = el("button", "link", "Save this login in SilentSilo");
+  const button = el("button", "link", msg("popup_save_button"));
   button.type = "button";
   button.addEventListener("click", () => void save());
-  box.append(button, el("p", "hint", "Type the login on the page first, then click this before you sign in."));
+  box.append(button, el("p", "hint", msg("popup_save_hint")));
   return box;
 }
 
@@ -255,18 +250,15 @@ async function save(): Promise<void> {
   const result = await ask<SaveResult>({ kind: "save", tabId, origin: listOrigin });
   await ask({ kind: "seen", tabId });
   if (!result) {
-    somethingWrong("Nothing was saved. Close this and try again.");
+    somethingWrong(msg("popup_save_lost"));
     return;
   }
   if (result.ok) {
     show(
       header(silo),
-      message(
-        result.updated ? "Password updated" : "Saved",
-        result.updated
-          ? `The login for ${site} has the new password. The old one is in its history.`
-          : `The login for ${site} is in your silo.`,
-      ),
+      result.updated
+        ? message(msg("popup_updated_title"), msg("popup_updated_body", { site }))
+        : message(msg("popup_saved_title"), msg("popup_saved_body", { site })),
     );
     return;
   }
@@ -274,19 +266,25 @@ async function save(): Promise<void> {
     render(result.view);
     return;
   }
-  show(header(silo), message("Not saved", result.message, "warn"));
+  show(header(silo), message(msg("popup_not_saved_title"), result.message, "warn"));
 }
 
+// "Logins for <site>", the site in bold wherever the language puts it.
 function siteLine(): HTMLElement {
   const line = el("p", "site");
-  line.append(el("span", "muted", "Logins for "), el("strong", "", site));
+  const mark = "\uE000";
+  const [before, after = ""] = msg("popup_logins_for", { site: mark }).split(mark);
+  if (before) line.append(el("span", "muted", before));
+  line.append(el("strong", "", site));
+  if (after) line.append(el("span", "muted", after));
   return line;
 }
 
 function savedFor(login: LoginSummary): HTMLElement {
-  if (login.site === undefined) return el("span", "saved other", "Saved for an unknown site");
-  if (!login.site) return el("span", "saved other", "Saved without a site");
-  return el("span", sameSite(login.site, site) ? "saved" : "saved other", `Saved for ${login.site}`);
+  if (login.site === undefined) return el("span", "saved other", msg("popup_saved_unknown_site"));
+  if (!login.site) return el("span", "saved other", msg("popup_saved_no_site"));
+  const own = sameSite(login.site, site);
+  return el("span", own ? "saved" : "saved other", msg("popup_saved_for", { site: login.site }));
 }
 
 function loginList(logins: LoginSummary[], showSite = false): HTMLElement {
@@ -295,7 +293,7 @@ function loginList(logins: LoginSummary[], showSite = false): HTMLElement {
     const item = el("li");
     const button = el("button", "login");
     button.type = "button";
-    button.append(el("span", "label", login.label || "Untitled login"));
+    button.append(el("span", "label", login.label || msg("popup_untitled")));
     if (login.username) button.append(el("span", "user", login.username));
     if (showSite) button.append(savedFor(login));
     button.addEventListener("click", () => void fill(login.ref));
@@ -312,8 +310,8 @@ function renderSearch(silo: string | undefined, notice?: string): void {
 
   const input = el("input", "search");
   input.type = "search";
-  input.placeholder = "Search all logins";
-  input.setAttribute("aria-label", "Search all logins");
+  input.placeholder = msg("popup_search_placeholder");
+  input.setAttribute("aria-label", input.placeholder);
   input.maxLength = 200;
   input.autocomplete = "off";
   input.spellcheck = false;
@@ -336,13 +334,13 @@ function renderSearch(silo: string | undefined, notice?: string): void {
         return;
       }
       if (queryTooShort(query)) {
-        results.replaceChildren(el("p", "muted", "Type at least two characters"));
+        results.replaceChildren(el("p", "muted", msg("popup_query_too_short")));
         return;
       }
       const answer = await ask<SearchResult>({ kind: "search", tabId, query });
       if (mine !== latest) return;
       if (!answer) {
-        results.replaceChildren(el("p", "muted", "Something went wrong. Try again."));
+        results.replaceChildren(el("p", "muted", msg("popup_search_failed")));
         return;
       }
       // A refusal the person can wait out (busy) stays under the search box.
@@ -355,12 +353,12 @@ function renderSearch(silo: string | undefined, notice?: string): void {
         return;
       }
       if (answer.logins.length === 0) {
-        results.replaceChildren(el("p", "muted", "Nothing matches."));
+        results.replaceChildren(el("p", "muted", msg("popup_no_results")));
         return;
       }
       results.replaceChildren(
         loginList(answer.logins, true),
-        el("p", "hint", "A login found by search may belong to another site. SilentSilo says so when you confirm."),
+        el("p", "hint", msg("popup_search_hint")),
       );
     }, 250);
   });
@@ -368,10 +366,8 @@ function renderSearch(silo: string | undefined, notice?: string): void {
 
 function renderWaiting(what: "fill" | "save"): void {
   const box = message(
-    "Confirm in SilentSilo",
-    what === "fill"
-      ? `The desktop app is asking you to confirm this fill on ${site}.`
-      : `The desktop app is asking whether to save the login for ${site}.`,
+    msg("popup_confirm_title"),
+    what === "fill" ? msg("popup_confirm_fill", { site }) : msg("popup_confirm_save", { site }),
   );
   box.classList.add("waiting");
   show(header(silo), box);
@@ -382,7 +378,7 @@ async function fill(ref: string): Promise<void> {
   const result = await ask<FillResult>({ kind: "fill", tabId, ref, origin: listOrigin });
   await ask({ kind: "seen", tabId });
   if (!result) {
-    somethingWrong("Nothing was filled. Close this and try again.");
+    somethingWrong(msg("popup_fill_lost"));
     return;
   }
   if (result.ok) {
@@ -395,7 +391,7 @@ async function fill(ref: string): Promise<void> {
   }
   const view = await ask<View>({ kind: "open", tabId });
   if (!view) {
-    show(header(silo), message("Nothing was filled", result.message, "warn"));
+    show(header(silo), message(msg("popup_fill_failed_title"), result.message, "warn"));
     return;
   }
   if (view.state === "ready") renderReady({ ...view, notice: result.message });
@@ -403,7 +399,7 @@ async function fill(ref: string): Promise<void> {
 }
 
 async function start(): Promise<void> {
-  show(header(), el("p", "muted loading", "Asking SilentSilo…"));
+  show(header(), el("p", "muted loading", msg("popup_asking")));
   const [tab] = await api.tabs.query({ active: true, currentWindow: true });
   if (tab?.id === undefined) {
     render({ state: "unsupported-page" });

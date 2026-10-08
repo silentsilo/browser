@@ -1,0 +1,404 @@
+{
+  "ext_description": {
+    "message": "Preenche e salva logins com o app SilentSilo para Windows e Linux. Você confirma cada preenchimento e salvamento no app.",
+    "description": "Extension description in the browser's extension list and in the store. At most 132 characters (Chrome's limit). 'Fill' and 'save' are what the extension does with a login; the person confirms each one in the desktop app, not in the browser."
+  },
+  "popup_asking": {
+    "message": "Consultando o SilentSilo…",
+    "description": "Popup, shown for a moment while the extension asks the desktop app for the logins of the current site."
+  },
+  "popup_waiting_start": {
+    "message": "Aguardando o SilentSilo iniciar…",
+    "description": "Popup, small line under 'SilentSilo is not reachable'. The popup checks again every few seconds and moves on by itself once the desktop app answers."
+  },
+  "popup_waiting_unlock": {
+    "message": "Aguardando o desbloqueio do silo…",
+    "description": "Popup, small line under 'Your silo is locked'. The popup checks again every few seconds and moves on by itself once the silo is unlocked in the desktop app."
+  },
+  "popup_waiting_silo": {
+    "message": "Aguardando um silo…",
+    "description": "Popup, small line under 'No silo yet'. The popup checks again every few seconds and moves on by itself once a silo exists in the desktop app."
+  },
+  "popup_error_title": {
+    "message": "Algo deu errado",
+    "description": "Popup title when the extension's own background part did not answer. Short."
+  },
+  "popup_error_body": {
+    "message": "Feche esta janela e tente de novo.",
+    "description": "Popup, under 'Something went wrong'. 'This' is the popup itself."
+  },
+  "popup_error_retry_close": {
+    "message": "Algo deu errado. Feche esta janela e tente de novo.",
+    "description": "Popup, small line under the 'Open SilentSilo' button when the request did not get through. 'This' is the popup itself."
+  },
+  "popup_no_host_title": {
+    "message": "O SilentSilo não está instalado",
+    "description": "Popup title: the browser cannot find the desktop app's connector on this computer."
+  },
+  "popup_no_host_body": {
+    "message": "Este computador precisa do SilentSilo $VERSION$ ou mais recente, com Configurações > Extensão do navegador ativada. Se já estiver assim, no Windows execute o instalador de novo.",
+    "description": "Popup, under 'SilentSilo is not installed'. $VERSION$ is the oldest desktop app version this extension works with. 'Settings > Browser extension' is the path to that switch in the desktop app; use the app's own words for it (Settings, then the Browser extension section). 'Its installer' is the desktop app's installer.",
+    "placeholders": {
+      "version": {
+        "content": "$1",
+        "example": "1.2.0"
+      }
+    }
+  },
+  "popup_not_reachable_title": {
+    "message": "Não foi possível acessar o SilentSilo",
+    "description": "Popup title: the desktop app is installed but not running, or its browser extension switch is off."
+  },
+  "popup_not_reachable_body": {
+    "message": "Abra o app de desktop SilentSilo e ative lá Configurações > Extensão do navegador.",
+    "description": "Popup, under 'SilentSilo is not reachable'. 'Settings > Browser extension' is the path to that switch in the desktop app; use the app's own words for it (Settings, then the Browser extension section)."
+  },
+  "popup_locked_title": {
+    "message": "Seu silo está bloqueado",
+    "description": "Popup title: the silo (the user's encrypted vault) is locked in the desktop app."
+  },
+  "popup_locked_body": {
+    "message": "Desbloqueie-o no SilentSilo.",
+    "description": "Popup, under 'Your silo is locked'. 'It' is the silo."
+  },
+  "popup_no_silo_title": {
+    "message": "Ainda não há silo",
+    "description": "Popup title: the desktop app has no silo on this computer yet."
+  },
+  "popup_no_silo_body": {
+    "message": "Crie um silo no SilentSilo ou configure um a partir do armazenamento de backup.",
+    "description": "Popup, under 'No silo yet'. 'Set one up from backup storage' is the desktop app's way to bring an existing silo to this computer (its 'Set up from backup storage' button)."
+  },
+  "popup_unsupported_title": {
+    "message": "Esta página não pode ser preenchida",
+    "description": "Popup title: the current tab is not a web page the extension may fill (a browser page, a file, an http site)."
+  },
+  "popup_unsupported_body": {
+    "message": "O SilentSilo preenche páginas https, e páginas http só se vierem deste computador.",
+    "description": "Popup, under 'This page cannot be filled'. https and http are kept as written. 'http pages on this computer' are pages served by this same computer (localhost), not pages viewed on it."
+  },
+  "popup_update_title": {
+    "message": "Atualize o SilentSilo",
+    "description": "Popup title, imperative: the desktop app is too old for this extension and needs updating."
+  },
+  "popup_update_body_installed": {
+    "message": "O SilentSilo $INSTALLED$ está instalado. Esta extensão precisa da versão $REQUIRED$ ou mais recente.",
+    "description": "Popup, under 'Update SilentSilo'. $INSTALLED$ is the desktop app's version on this computer, $REQUIRED$ the oldest one this extension works with.",
+    "placeholders": {
+      "installed": {
+        "content": "$1",
+        "example": "1.1.0"
+      },
+      "required": {
+        "content": "$2",
+        "example": "1.2.0"
+      }
+    }
+  },
+  "popup_update_body": {
+    "message": "Esta extensão precisa da versão $REQUIRED$ ou mais recente.",
+    "description": "Popup, under 'Update SilentSilo', when the installed version could not be read. $REQUIRED$ is the oldest desktop app version this extension works with.",
+    "placeholders": {
+      "required": {
+        "content": "$1",
+        "example": "1.2.0"
+      }
+    }
+  },
+  "popup_list_error_title": {
+    "message": "O SilentSilo não conseguiu listar seus logins",
+    "description": "Popup title above an error from the list below. 'Logins' are saved usernames and passwords for websites."
+  },
+  "popup_open_app": {
+    "message": "Abrir o SilentSilo",
+    "description": "Popup button, verb: brings the desktop app's window to the front. Same words as the app's own 'Open SilentSilo'."
+  },
+  "popup_after_open_locked": {
+    "message": "Desbloqueie seu silo na janela do SilentSilo. Se esta janela fechar, clique na extensão de novo depois.",
+    "description": "Popup, under the 'Open SilentSilo' button once the app's window came forward. 'This' is the popup, which the browser may close when the app's window takes focus."
+  },
+  "popup_after_open_no_silo": {
+    "message": "Crie um silo na janela do SilentSilo ou configure um a partir do armazenamento de backup. Se esta janela fechar, clique na extensão de novo depois.",
+    "description": "Popup, under the 'Open SilentSilo' button once the app's window came forward and there is no silo yet. 'This' is the popup, which the browser may close when the app's window takes focus."
+  },
+  "popup_logins_for": {
+    "message": "Logins de $SITE$",
+    "description": "Popup, line at the top of the list. $SITE$ is the current website's domain, shown in bold. 'Logins' are saved usernames and passwords.",
+    "placeholders": {
+      "site": {
+        "content": "$1",
+        "example": "github.com"
+      }
+    }
+  },
+  "popup_search_all": {
+    "message": "Pesquisar em todos os logins",
+    "description": "Popup link-style button under the list: opens a search over every login in the silo, not only this site's."
+  },
+  "popup_search_placeholder": {
+    "message": "Pesquisar em todos os logins",
+    "description": "Popup, grey text inside the empty search box, also read out by screen readers as the box's name. The search covers every login in the silo."
+  },
+  "popup_no_match_title": {
+    "message": "Nada salvo para este site",
+    "description": "Popup title when the silo has no login saved for the current website."
+  },
+  "popup_no_match_body": {
+    "message": "Não há nada salvo para $SITE$. Se você esperava um login aqui, confira o endereço: este pode não ser o site que você imagina.",
+    "description": "Popup, under 'Nothing saved for this site'. $SITE$ is the current website's domain. A warning against phishing: a fake site has a different address, so nothing matches it.",
+    "placeholders": {
+      "site": {
+        "content": "$1",
+        "example": "github.com"
+      }
+    }
+  },
+  "popup_search_anyway": {
+    "message": "Pesquisar mesmo assim",
+    "description": "Popup link-style button after that warning: opens the search over every login despite it."
+  },
+  "popup_save_button": {
+    "message": "Salvar este login no SilentSilo",
+    "description": "Popup link-style button, verb: offers the username and password typed on the page to the desktop app, which asks whether to save them. The desktop app's save dialog refers to this button by its first word (Save)."
+  },
+  "popup_save_hint": {
+    "message": "Digite primeiro o login na página e clique aqui antes de entrar.",
+    "description": "Popup, small text under the save button. 'Sign in' is submitting the website's login form; after that the typed values are gone."
+  },
+  "popup_save_lost": {
+    "message": "Nada foi salvo. Feche esta janela e tente de novo.",
+    "description": "Popup, after a save request that got no answer from the extension's background part. 'This' is the popup itself."
+  },
+  "popup_saved_title": {
+    "message": "Salvo",
+    "description": "Popup title after the login typed on the page was saved as a new login in the silo. Short."
+  },
+  "popup_saved_body": {
+    "message": "O login de $SITE$ está no seu silo.",
+    "description": "Popup, under 'Saved'. $SITE$ is the website's domain.",
+    "placeholders": {
+      "site": {
+        "content": "$1",
+        "example": "github.com"
+      }
+    }
+  },
+  "popup_updated_title": {
+    "message": "Senha atualizada",
+    "description": "Popup title after the password typed on the page replaced the one in an existing login. Short."
+  },
+  "popup_updated_body": {
+    "message": "O login de $SITE$ tem a nova senha. A antiga está no histórico.",
+    "description": "Popup, under 'Password updated'. $SITE$ is the website's domain. 'Its history' is the login's password history in the app.",
+    "placeholders": {
+      "site": {
+        "content": "$1",
+        "example": "github.com"
+      }
+    }
+  },
+  "popup_not_saved_title": {
+    "message": "Não salvo",
+    "description": "Popup title above the reason a save did not happen. Short."
+  },
+  "popup_saved_for": {
+    "message": "Salvo para $SITE$",
+    "description": "Popup, small line under a search result: the website the login was saved for. $SITE$ is that website's domain.",
+    "placeholders": {
+      "site": {
+        "content": "$1",
+        "example": "github.com"
+      }
+    }
+  },
+  "popup_saved_unknown_site": {
+    "message": "Salvo para um site desconhecido",
+    "description": "Popup, small line under a search result when the desktop app did not say which website the login belongs to."
+  },
+  "popup_saved_no_site": {
+    "message": "Salvo sem site",
+    "description": "Popup, small line under a search result whose login has no website address."
+  },
+  "popup_untitled": {
+    "message": "Login sem título",
+    "description": "Popup, shown in the list in place of a login's name when it has none."
+  },
+  "popup_query_too_short": {
+    "message": "Digite pelo menos dois caracteres",
+    "description": "Popup, under the search box while it holds a single character."
+  },
+  "popup_search_failed": {
+    "message": "Algo deu errado. Tente de novo.",
+    "description": "Popup, under the search box when a search got no answer."
+  },
+  "popup_no_results": {
+    "message": "Nenhum resultado.",
+    "description": "Popup, under the search box when no login matches what was typed."
+  },
+  "popup_search_hint": {
+    "message": "Um login encontrado pela pesquisa pode ser de outro site. O SilentSilo avisa quando você confirma.",
+    "description": "Popup, small text under search results. A warning: a login found by searching may be for a different website than the open one, and the desktop app says so in its confirmation."
+  },
+  "popup_confirm_title": {
+    "message": "Confirme no SilentSilo",
+    "description": "Popup title while the desktop app shows its confirmation for a fill or a save. Imperative."
+  },
+  "popup_confirm_fill": {
+    "message": "O app de desktop está pedindo que você confirme o preenchimento em $SITE$.",
+    "description": "Popup, under 'Confirm in SilentSilo'. $SITE$ is the website's domain. A 'fill' is the extension writing a saved username and password into the page.",
+    "placeholders": {
+      "site": {
+        "content": "$1",
+        "example": "github.com"
+      }
+    }
+  },
+  "popup_confirm_save": {
+    "message": "O app de desktop está perguntando se deve salvar o login de $SITE$.",
+    "description": "Popup, under 'Confirm in SilentSilo'. $SITE$ is the website's domain.",
+    "placeholders": {
+      "site": {
+        "content": "$1",
+        "example": "github.com"
+      }
+    }
+  },
+  "popup_fill_lost": {
+    "message": "Nada foi preenchido. Feche esta janela e tente de novo.",
+    "description": "Popup, after a fill request that got no answer from the extension's background part. 'This' is the popup itself."
+  },
+  "popup_fill_failed_title": {
+    "message": "Nada foi preenchido",
+    "description": "Popup title above the reason a fill did not happen. Short."
+  },
+  "err_timeout": {
+    "message": "O SilentSilo não respondeu a tempo.",
+    "description": "Popup error: the desktop app did not answer a request in time."
+  },
+  "err_bad_answer": {
+    "message": "O SilentSilo enviou uma resposta que esta extensão não entende. Atualize os dois para a versão mais recente.",
+    "description": "Popup error: the desktop app's answer has a shape this extension does not know, usually a version mismatch. 'Both' are the desktop app and this extension."
+  },
+  "err_no_password_field": {
+    "message": "Não há campo de senha nesta página. Abra o formulário de login e tente de novo.",
+    "description": "Popup error before a fill: the page has no password field to fill."
+  },
+  "err_frame_other_site": {
+    "message": "O formulário de login está dentro de um quadro de outro site. Esta versão só preenche a página principal.",
+    "description": "Popup error before a fill: the login form sits in an embedded frame (iframe) loaded from a different website, which this version does not fill."
+  },
+  "err_frame_this_site": {
+    "message": "O formulário de login está dentro de um quadro desta página. Esta versão só preenche a página principal.",
+    "description": "Popup error before a fill: the login form sits in an embedded frame (iframe) of the same website, which this version does not fill."
+  },
+  "err_navigated_fill": {
+    "message": "A página mudou antes do preenchimento. Nada foi preenchido.",
+    "description": "Popup error: the tab moved to another page while the fill was being confirmed, so nothing was written."
+  },
+  "err_form_elsewhere_host": {
+    "message": "O formulário de login desta página envia o que você digita para $HOST$, não para este site. Nada foi preenchido.",
+    "description": "Popup error, a security refusal: the page's login form would send what is typed to another website, as a planted form does. $HOST$ is that other website's domain.",
+    "placeholders": {
+      "host": {
+        "content": "$1",
+        "example": "collect.example.net"
+      }
+    }
+  },
+  "err_form_elsewhere": {
+    "message": "O formulário de login desta página envia o que você digita para outro lugar, não para este site. Nada foi preenchido.",
+    "description": "Popup error, a security refusal: the page's login form would send what is typed somewhere other than this website, to an address without a domain."
+  },
+  "err_cannot_fill": {
+    "message": "Esta página não pode ser preenchida.",
+    "description": "Popup error, one sentence: the browser did not let the extension into this page."
+  },
+  "err_generic_fill": {
+    "message": "Algo deu errado. Nada foi preenchido.",
+    "description": "Popup error for any failure without a more precise text, usually during a fill."
+  },
+  "err_unknown_ref": {
+    "message": "Esta lista estava desatualizada, então nada foi preenchido. Escolha o login de novo.",
+    "description": "Popup error: the login chosen from the list no longer exists in the silo (the list was stale)."
+  },
+  "err_fill_cancelled": {
+    "message": "O preenchimento não foi confirmado no SilentSilo. Nada foi preenchido.",
+    "description": "Popup error: the person cancelled the fill in the desktop app, or let it time out."
+  },
+  "err_busy": {
+    "message": "O SilentSilo está ocupado. Tente de novo em alguns segundos.",
+    "description": "Popup error: the desktop app is handling another request, or pausing after a declined one."
+  },
+  "err_no_authenticator": {
+    "message": "Este silo não tem chave de segurança nem Windows Hello configurados, então o SilentSilo não pode confirmar um preenchimento. Adicione uma em “Desbloqueio” no SilentSilo e tente de novo.",
+    "description": "Popup error: the open silo has nothing to confirm a fill with. Windows Hello is a product name, kept. 'Unlocking' is the desktop app's Settings section name, written as the app writes it."
+  },
+  "err_bad_request": {
+    "message": "O SilentSilo recusou o pedido. Se isso continuar acontecendo, atualize o SilentSilo e esta extensão.",
+    "description": "Popup error: the desktop app refused a request it did not accept, usually a version mismatch."
+  },
+  "err_read_failed": {
+    "message": "O SilentSilo não conseguiu ler os logins deste silo. Tente de novo ou reinicie o SilentSilo.",
+    "description": "Popup error: the desktop app could not read the saved logins of the open silo."
+  },
+  "err_unknown_code": {
+    "message": "O SilentSilo recusou o pedido por um motivo que esta extensão não conhece. Atualize os dois para a versão mais recente.",
+    "description": "Popup error: the desktop app refused with a reason newer than this extension. 'Both' are the desktop app and this extension."
+  },
+  "err_already_waiting": {
+    "message": "Esta aba já está aguardando a confirmação no SilentSilo.",
+    "description": "Popup error: a fill or save from this same browser tab is still waiting for confirmation in the desktop app."
+  },
+  "err_other_tab_waiting": {
+    "message": "Outra aba está aguardando a confirmação no SilentSilo. Confirme ou cancele o pedido lá e tente de novo.",
+    "description": "Popup error: a fill or save from another browser tab is waiting for confirmation in the desktop app. 'It' is that waiting request."
+  },
+  "err_nothing_typed": {
+    "message": "Nenhuma senha foi digitada nesta página. Digite-a no formulário de login e salve antes de entrar. Se você já entrou, adicione o login no SilentSilo.",
+    "description": "Popup error on save: no password is typed in the page's login form. 'Sign in' is submitting the website's form, after which the typed values are gone; then the login can still be added by hand in the desktop app."
+  },
+  "err_too_long": {
+    "message": "Essa senha ou esse nome de usuário é mais longo do que o SilentSilo guarda. Adicione o login diretamente no SilentSilo.",
+    "description": "Popup error on save: the typed password or username is over the length the desktop app keeps. It can still be added by hand in the app."
+  },
+  "err_save_declined": {
+    "message": "O SilentSilo não salvou este login da página.",
+    "description": "Popup, after a save the person cancelled in the desktop app, or let time out."
+  },
+  "err_several_typed": {
+    "message": "Há mais de uma senha digitada nesta página. Clique na que deseja salvar e escolha “Salvar este login” de novo.",
+    "description": "Popup error on save: different passwords are typed in several fields of the page. The last words name the save button ('Save this login in SilentSilo') by its start; use the same words as that button."
+  },
+  "err_silo_changed": {
+    "message": "O SilentSilo trocou de silo ou o silo foi bloqueado antes de salvar. Nada foi salvo.",
+    "description": "Popup error on save: while the save waited for confirmation, the desktop app switched to another silo or the silo locked."
+  },
+  "err_cannot_save": {
+    "message": "Os logins podem ser salvos de páginas https, e de páginas http só se vierem deste computador.",
+    "description": "Popup error on save: the current tab is not a page logins may be saved from. https and http are kept as written; 'http pages on this computer' are pages served by this same computer (localhost)."
+  },
+  "err_navigated_save": {
+    "message": "A página mudou antes de salvar. Nada foi salvo.",
+    "description": "Popup error: the tab moved to another page before the save, so nothing was read or saved."
+  },
+  "err_locked_fill": {
+    "message": "Seu silo está bloqueado. Nada foi preenchido.",
+    "description": "Popup error: the silo locked while a fill waited for confirmation."
+  },
+  "err_unreachable_fill": {
+    "message": "Não foi possível acessar o SilentSilo. Nada foi preenchido.",
+    "description": "Popup error: the desktop app closed or stopped answering during a fill."
+  },
+  "err_locked_save": {
+    "message": "Seu silo está bloqueado. Nada foi salvo.",
+    "description": "Popup error: the silo locked while a save waited for confirmation."
+  },
+  "err_unreachable_save": {
+    "message": "Não foi possível acessar o SilentSilo. Nada foi salvo.",
+    "description": "Popup error: the desktop app closed or stopped answering during a save."
+  },
+  "err_generic_save": {
+    "message": "Algo deu errado. Nada foi salvo.",
+    "description": "Popup error for any save failure without a more precise text."
+  }
+}

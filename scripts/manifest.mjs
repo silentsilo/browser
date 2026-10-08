@@ -32,6 +32,7 @@ export function checkManifest(target, manifest, { store }) {
   };
   if (manifest.manifest_version !== 3) fail("must be Manifest V3");
   if (store && "key" in manifest) fail("the store build must not carry a key");
+  if (manifest.default_locale !== "en") fail("default_locale must be en, the language every text falls back to");
   if ("host_permissions" in manifest) fail("must not ask for host permissions");
   // Every way something outside the extension could reach into it, or it
   // into pages, beyond the click: none of them, ever.

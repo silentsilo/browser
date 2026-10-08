@@ -7,6 +7,7 @@ import {
   type View,
 } from "../shared/messages";
 import type { FillArgs, FillResult as PageResult } from "../page/fill-page";
+import { msg } from "../shared/i18n";
 import { ClientError, type NativeClient } from "./native-client";
 import { fillableOrigin, siteName } from "./origin";
 import { MIN_APP_VERSION, SAVE_APP_VERSION, type LoginSummary } from "./protocol";
@@ -31,44 +32,42 @@ export interface ServiceDeps {
   flag: (tabId: number, on: boolean) => void;
 }
 
+// The extension's own texts for every outcome. The app's words never reach
+// the popup.
 export const TEXT = {
-  timeout: "SilentSilo did not answer in time.",
-  badAnswer: "SilentSilo sent an answer this extension does not understand. Update both to the latest version.",
-  noPassword: "No password field on this page. Open the login form, then try again.",
-  crossOriginFrame:
-    "The login form is inside a frame from another site. This version fills only the main page.",
-  sameOriginFrame: "The login form is inside a frame on this page. This version fills only the main page.",
-  navigated: "The page changed before the fill. Nothing was filled.",
+  timeout: msg("err_timeout"),
+  badAnswer: msg("err_bad_answer"),
+  noPassword: msg("err_no_password_field"),
+  crossOriginFrame: msg("err_frame_other_site"),
+  sameOriginFrame: msg("err_frame_this_site"),
+  navigated: msg("err_navigated_fill"),
   // A form planted on the site to send the password somewhere else.
-  elsewhere: (host: string) =>
-    host
-      ? `The login form on this page sends what you type to ${host}, not to this site. Nothing was filled.`
-      : "The login form on this page sends what you type somewhere other than this site. Nothing was filled.",
-  cannotReach: "This page cannot be filled.",
-  generic: "Something went wrong. Nothing was filled.",
+  elsewhere: (host: string) => (host ? msg("err_form_elsewhere_host", { host }) : msg("err_form_elsewhere")),
+  cannotReach: msg("err_cannot_fill"),
+  generic: msg("err_generic_fill"),
   // One per error code the app sends. The app's own `message` is never shown.
-  unknownRef: "This list was out of date, so nothing was filled. Choose the login again.",
-  cancelled: "The fill was not confirmed in SilentSilo. Nothing was filled.",
+  unknownRef: msg("err_unknown_ref"),
+  cancelled: msg("err_fill_cancelled"),
   // Another fill waiting, too many requests, or the pause after a declined fill.
-  busy: "SilentSilo is busy. Try again in a few seconds.",
-  noAuthenticator:
-    "This silo has no security key or Windows Hello set up, so SilentSilo cannot confirm a fill. Add one under Unlocking in SilentSilo, then try again.",
-  badRequest: "SilentSilo refused the request. If this keeps happening, update SilentSilo and this extension.",
-  readFailed: "SilentSilo could not read the logins in this silo. Try again, or restart SilentSilo.",
-  unknownCode: "SilentSilo refused the request for a reason this extension does not know. Update both to the latest version.",
-  alreadyWaiting: "This tab is already waiting for confirmation in SilentSilo.",
-  nothingTyped:
-    "No password is typed on this page. Type it in the login form and save before you sign in. " +
-    "If you already signed in, add the login in SilentSilo.",
-  tooLong: "That password or username is longer than SilentSilo keeps. Add the login in SilentSilo instead.",
-  notSaved: "SilentSilo did not save this login from the page.",
-  severalTyped:
-    "More than one password is typed on this page. Click in the one to save, then choose Save this login again.",
-  savedElsewhere: "SilentSilo switched silos or locked before the save. Nothing was saved.",
-  cannotSave: "Logins can be saved from https pages, and http pages on this computer only.",
-  navigatedSave: "The page changed before the save. Nothing was saved.",
-  otherTabWaiting:
-    "Another tab is waiting for confirmation in SilentSilo. Confirm or cancel it there, then try again.",
+  busy: msg("err_busy"),
+  noAuthenticator: msg("err_no_authenticator"),
+  badRequest: msg("err_bad_request"),
+  readFailed: msg("err_read_failed"),
+  unknownCode: msg("err_unknown_code"),
+  alreadyWaiting: msg("err_already_waiting"),
+  nothingTyped: msg("err_nothing_typed"),
+  tooLong: msg("err_too_long"),
+  notSaved: msg("err_save_declined"),
+  severalTyped: msg("err_several_typed"),
+  savedElsewhere: msg("err_silo_changed"),
+  cannotSave: msg("err_cannot_save"),
+  navigatedSave: msg("err_navigated_save"),
+  otherTabWaiting: msg("err_other_tab_waiting"),
+  lockedFill: msg("err_locked_fill"),
+  unreachableFill: msg("err_unreachable_fill"),
+  lockedSave: msg("err_locked_save"),
+  unreachableSave: msg("err_unreachable_save"),
+  genericSave: msg("err_generic_save"),
 };
 
 export class Service {
@@ -263,15 +262,15 @@ export class Service {
 }
 
 function fillStopped(state: View["state"]): string {
-  if (state === "locked") return "Your silo is locked. Nothing was filled.";
-  if (state === "app-not-running") return "SilentSilo is not reachable. Nothing was filled.";
+  if (state === "locked") return TEXT.lockedFill;
+  if (state === "app-not-running") return TEXT.unreachableFill;
   return TEXT.generic;
 }
 
 function saveStopped(state: View["state"]): string {
-  if (state === "locked") return "Your silo is locked. Nothing was saved.";
-  if (state === "app-not-running") return "SilentSilo is not reachable. Nothing was saved.";
-  return "Something went wrong. Nothing was saved.";
+  if (state === "locked") return TEXT.lockedSave;
+  if (state === "app-not-running") return TEXT.unreachableSave;
+  return TEXT.genericSave;
 }
 
 function pageFailure(result: PageResult | { outcome: "unreachable" }): Extract<FillResult, { ok: false }> {

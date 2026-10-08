@@ -103,6 +103,19 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("the language", () => {
+  it("names the site in bold inside one message, in the browser's language", async () => {
+    const client = await openPopup((request) =>
+      request.type === "status" ? unlocked : { type: "logins", logins: [{ ref: "r1", label: "GitHub", username: "a" }] },
+    );
+    const line = document.querySelector(".site") as HTMLElement;
+    expect(line.textContent).toBe("Logins for github.com");
+    expect(line.querySelector("strong")?.textContent).toBe("github.com");
+    expect(document.documentElement.lang).toBe("en");
+    client.close();
+  });
+});
+
 describe("error answers", () => {
   it.each([
     ["cancelled", TEXT.cancelled],

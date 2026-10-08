@@ -225,6 +225,29 @@ drawn inside the browser, which is what we do not trust.
 Each of these can come later. Each of them widens what the extension does
 inside the page, so each of them is a change to this document first.
 
+## Languages
+
+The extension speaks the eight languages the apps do (English, Romanian,
+German, French, Spanish, Italian, Brazilian Portuguese, Polish), through the
+browsers' own mechanism: `_locales/<lang>/messages.json`, one file per
+language, and `default_locale` set to `en` in the manifest. Every message
+carries a `description` that says where it appears and what it means: it is
+the translator's note, and translations are made from it, by meaning, with
+the apps' glossary (`silentsilo.desktop/src/i18n/README.md`). Values go in
+through named placeholders, never by joining strings.
+
+The language is the browser's own (`chrome.i18n`), not the app's: the
+extension holds no settings, and asking the app for its language would be a
+new message on the channel for no gain. The manifest's description is a
+message too, so each store shows it in the reader's language; the name stays
+SilentSilo everywhere.
+
+Code reads messages through one function (`src/shared/i18n.ts`) that falls
+back to the English file where `chrome.i18n` is missing (the tests), so the
+tests read the same English the extension shows. Nothing about the language
+crosses the channel: the app's confirmations are in the app's own language,
+and the extension never shows text the app sent.
+
 ## Browsers and stores
 
 Manifest V3 throughout, one source, two builds. The desktop side (the

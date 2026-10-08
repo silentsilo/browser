@@ -38,6 +38,8 @@ async function buildTarget(target) {
 
   cpSync("src/popup/popup.html", join(out, "popup.html"));
   cpSync("src/popup/popup.css", join(out, "popup.css"));
+  // The texts in every language; the manifest's default_locale needs them.
+  cpSync("_locales", join(out, "_locales"), { recursive: true });
   mkdirSync(join(out, "icons"));
   for (const size of [16, 32, 48, 128]) cpSync(`icons/icon-${size}.png`, join(out, "icons", `icon-${size}.png`));
 

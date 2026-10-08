@@ -45,6 +45,20 @@ describe("manifests", () => {
     expect(() => checkManifest("chrome", m, { store: true })).toThrow("permissions");
   });
 
+  it.each(TARGETS)("%s keeps the name and takes its description from the locales, English by default", (target) => {
+    const m = composeManifest(target, { store: true, version });
+    const english = JSON.parse(readFileSync("_locales/en/messages.json", "utf8"));
+    expect(m.name).toBe("SilentSilo");
+    expect(m.default_locale).toBe("en");
+    expect(m.description).toBe("__MSG_ext_description__");
+    expect(english.ext_description.message).toContain("Windows and Linux");
+  });
+
+  it("refuses a manifest without the English default locale", () => {
+    const m = { ...composeManifest("chrome", { store: true, version }), default_locale: "ro" };
+    expect(() => checkManifest("chrome", m, { store: true })).toThrow("default_locale");
+  });
+
   it.each(TARGETS)("the %s store build carries no key", (target) => {
     expect(composeManifest(target, { store: true, version })).not.toHaveProperty("key");
   });
