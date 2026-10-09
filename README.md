@@ -154,5 +154,7 @@ which is missing.
 
 ## Licence
 
+Copyright (C) 2026 Software Hive S.R.L.
+
 AGPL-3.0-or-later, like the rest of SilentSilo. Contributions are accepted
 under [CLA.md](CLA.md).
