@@ -269,9 +269,45 @@ path and the add-on id as arguments, where Chrome and Edge pass the
 extension's origin. An open native port keeps a Chrome service worker
 alive, and should keep a Firefox event page alive the same way, so a fill
 waiting for confirmation is not cut off; a Firefox fill that waits longer
-than 30 seconds is still to be checked on a real machine. Safari is not
-planned. Store review is a fact of life here: the listing says what the
-extension does in the terms above, and the source is this repository.
+than 30 seconds is still to be checked on a real machine. Safari is
+planned for desktop 1.5 (below). Store review is a fact of life here: the
+listing says what the extension does in the terms above, and the source is
+this repository.
+
+### Safari (planned, not built)
+
+Safari has no native host started over stdio. A Safari web extension lives
+inside a macOS app, as an app extension, and `browser.runtime.sendNativeMessage`
+reaches that extension's `SafariWebExtensionHandler`, one request at a time.
+So the parties change on a Mac:
+
+```
+page  <->  extension  <->  handler (appex in SilentSilo.app)  <->  desktop app
+```
+
+- **The extension** is the same source, a third build: the Chrome manifest
+  with Safari's differences, packaged into the appex's resources by Xcode.
+  It sends each request with `sendNativeMessage` instead of a port, and
+  waits for the answer; a fill waiting for confirmation is one request that
+  stays open.
+- **The handler** replaces `silentsilo-browser-host` and decides nothing,
+  as the host does: it copies the frame to the app and the answer back. It
+  is sandboxed, as Safari requires, so it cannot reach the socket the host
+  uses. The app serves a second socket in an app group's container that
+  the app and the handler share (`<team>.com.silentsilo.desktop`).
+- **The checks** in "The channel" become: Safari routes messages only from
+  the extension packaged in that appex (in place of check 1 and the host's
+  id check); the handler checks the socket's server is the signed app (as
+  check 3); the app checks the socket's client is the signed handler, by
+  team and bundle id (as check 4); the person confirms in the app (5).
+- **Distribution** stays outside the Mac App Store: the appex is signed
+  with the app's Developer ID and its own provisioning profile (app group),
+  notarised with the app, and turned on by the person in Safari's settings.
+
+Before code: the app group and the appex's App ID registered by Alex at
+Apple, and a provisioning profile for each; the appex built and signed in
+the release workflow before the app around it; a test session on the Mac,
+where Safari needs the person to switch the extension on.
 
 The desktop host does not exit when no app listens: it answers every
 request with `app-not-running` until the browser closes the port. So the
