@@ -51,7 +51,7 @@ describe("manifests", () => {
     expect(m.name).toBe("SilentSilo");
     expect(m.default_locale).toBe("en");
     expect(m.description).toBe("__MSG_ext_description__");
-    expect(english.ext_description.message).toContain("Windows and Linux");
+    expect(english.ext_description.message).toContain("Windows, macOS and Linux");
   });
 
   it("refuses a manifest without the English default locale", () => {
