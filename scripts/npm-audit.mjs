@@ -16,20 +16,39 @@ const IGNORED = {
 
 const FAILING = new Set(["high", "critical"]);
 
-let report;
+/** An audit that did not run is a failure, never a clean result. */
+function broken(why) {
+  console.error(`npm audit did not run: ${why}`);
+  process.exit(2);
+}
+
+let output;
 try {
-  report = execFileSync("npm", ["audit", "--json"], {
+  output = execFileSync("npm", ["audit", "--json"], {
     encoding: "utf8",
     shell: process.platform === "win32",
     stdio: ["ignore", "pipe", "inherit"],
   });
 } catch (e) {
   // npm audit exits non-zero when it finds anything; the JSON is still there.
-  report = e.stdout;
+  if (typeof e.stdout !== "string" || !e.stdout.trim()) broken(e.message);
+  output = e.stdout;
+}
+
+let report;
+try {
+  report = JSON.parse(output);
+} catch {
+  broken("its output is not JSON");
+}
+// A registry or lockfile failure still prints JSON, with an `error` in it.
+if (report?.error) broken(report.error.summary || report.error.code || "it reported an error");
+if (typeof report?.vulnerabilities !== "object" || report.vulnerabilities === null) {
+  broken("the report has no vulnerabilities section");
 }
 
 const advisories = new Map();
-for (const vuln of Object.values(JSON.parse(report).vulnerabilities ?? {})) {
+for (const vuln of Object.values(report.vulnerabilities)) {
   for (const via of vuln.via) {
     if (typeof via !== "object") continue;
     const id = via.url?.split("/").pop() ?? String(via.source);

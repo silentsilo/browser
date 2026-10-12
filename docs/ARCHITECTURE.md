@@ -81,10 +81,15 @@ page  <->  extension (popup + background script)  <->  desktop app (native messa
 
 ## Matching
 
-The app matches a login to a site by origin, the same rule the Android
-autofill uses since core 1.6.0: a saved login carries the site it was saved
-for, and it is offered only to that site. Nothing "looks similar": `paypal`
-in the address of a phishing page matches nothing.
+The app matches a login to a site by host and port. A saved login carries
+the site it was saved for, and it is offered only when the tab's host is
+that host or differs from it only by a leading `www.`, on the same port. A
+login saved for `http://` also matches the same host over https on the
+default port. No parent domains, no other subdomains, and nothing that
+"looks similar": `paypal` in the address of a phishing page matches nothing.
+
+The Android autofill follows the same host rule (the exact domain or its
+`www.` pair) and also checks the scheme and the port the browser reports.
 
 When nothing matches, the popup does not open a search box. A phishing page
 can tell the person "search for paypal", so the popup says first that
