@@ -70,14 +70,15 @@ page  <->  extension (popup + background script)  <->  desktop app (native messa
   last fill ended while the popup was closed, with the origin it was for.
   That is never a login, and it goes when the tab closes.
 - **The desktop app** answers. It owns the silo, decides what matches, asks
-  Windows Hello or the security key, and hands over one login for one fill;
+  Windows Hello, Touch ID or the security key, and hands over one login for
+  one fill;
   a login offered for saving is written only once the person presses Save
   in its window.
 - **The native messaging host** sits between the browser and the app. It is
   a separate small program, `silentsilo-browser-host` (its own crate in the
   desktop repository), installed beside the app. The browser starts it; it
   relays messages to the running app over a named pipe on Windows, a Unix
-  socket on Linux, and decides nothing.
+  socket on Linux and macOS, and decides nothing.
 
 ## Matching
 
@@ -129,7 +130,8 @@ What is actually checked, in the order a message meets it:
    before it sends anything.
 4. **The app** checks that the pipe client is the signed host binary.
 5. **The person** confirms every fill in the app, on a dialog that names the
-   site and the login, then with Windows Hello or the security key.
+   site and the login, then with Windows Hello, Touch ID or the security
+   key.
 
 The app cannot know which extension is talking or which page a request came
 from. It relies on the checks above for that, and the origin in a request is
@@ -256,11 +258,11 @@ and the extension never shows text the app sent.
 ## Browsers and stores
 
 Manifest V3 throughout, one source, two builds. The desktop side (the
-native host and the channel to the app) exists on Windows and, from desktop
-1.4, on Linux, where the channel is a Unix socket in the user's runtime
-directory instead of a named pipe; the checks on each end are in the
-desktop repository's `docs/ARCHITECTURE.md`. The extension itself is the
-same build on both. Chrome and Edge share the
+native host and the channel to the app) exists on Windows, from desktop 1.4
+on Linux and from 1.5 on macOS, where the channel is a Unix socket instead
+of a named pipe; the checks on each end are in the desktop repository's
+`docs/ARCHITECTURE.md`. The extension itself is the same build on all
+three. Chrome and Edge share the
 Chrome build and one native host manifest format; Brave installs the same
 build from the Chrome Web Store. Firefox gets its own build, which differs
 only in the manifest: the background script runs as an event page instead of
@@ -275,11 +277,11 @@ extension's origin. An open native port keeps a Chrome service worker
 alive, and should keep a Firefox event page alive the same way, so a fill
 waiting for confirmation is not cut off; a Firefox fill that waits longer
 than 30 seconds is still to be checked on a real machine. Safari is
-planned for desktop 1.5 (below). Store review is a fact of life here: the
+designed but not built, with no release planned (below). Store review is a fact of life here: the
 listing says what the extension does in the terms above, and the source is
 this repository.
 
-### Safari (planned, not built)
+### Safari (designed, not built)
 
 Safari has no native host started over stdio. A Safari web extension lives
 inside a macOS app, as an app extension, and `browser.runtime.sendNativeMessage`

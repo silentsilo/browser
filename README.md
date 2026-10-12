@@ -2,8 +2,8 @@
 
 Fills logins from a SilentSilo silo into the browser, and saves one you
 type. It works with the SilentSilo desktop app running on the same
-computer: on Windows, version 1.2.0 or later, and on Linux, version 1.4.0
-or later.
+computer: on Windows, version 1.2.0 or later, on Linux, version 1.4.0 or
+later, and on macOS, version 1.5.0 or later.
 
 Published on the Chrome Web Store, Firefox Add-ons (id
 `browser@silentsilo.com`) and Microsoft Edge Add-ons.
@@ -18,7 +18,7 @@ The extension is a button and a form. It holds no key, no password and no
 list of logins. When you ask it to fill a page, it sends the page's origin to
 the desktop app over the browser's native messaging channel, the app looks
 up the logins saved for exactly that site, and you confirm the fill in the
-app with Windows Hello or your security key. The extension then writes the
+app with Windows Hello, Touch ID or your security key. The extension then writes the
 username and password into the fields you are looking at. It does not keep
 or store them.
 
@@ -55,13 +55,14 @@ One codebase, Manifest V3, two builds.
   `browser@silentsilo.com`. The code is the same; only the manifest differs,
   because Firefox runs the background script as an event page where Chrome
   runs a service worker.
-- **Safari**: not planned. It needs a Mac to build and sign.
+- **Safari**: not built. It needs an app extension inside the Mac app; the
+  design is in `docs/ARCHITECTURE.md`.
 
-Windows and Linux for now: the desktop app's native host, which the
-browser talks to, is built for those two. Each browser finds it through its
-own native host registration: on Windows the desktop installer writes it, on
-Linux the desktop app writes it in your home when you turn the extension on
-in its Settings. Nothing for
+Windows, Linux and macOS: the desktop app's native host, which the
+browser talks to, is built for those three. Each browser finds it through
+its own native host registration: on Windows the desktop installer writes
+it, on Linux and macOS the desktop app writes it in your home when you turn
+the extension on in its Settings, and again at every start. Nothing for
 mobile browsers: the Android app fills logins through the system's own
 autofill instead.
 
