@@ -199,8 +199,11 @@ describe("the port closing", () => {
     for (const code of ["browser-not-supported", "channel-not-app"]) {
       const { client, ports } = setup();
       const status = rejection(client.request({ type: "status" }, 1000));
+      const other = rejection(client.request({ type: "logins", origin: "https://github.com" }, 1000));
       ports[0].answer({ id: "1", type: "error", code, message: "from the host" });
       expect((await status).code).toBe(code);
+      // A request in flight beside it learns the same reason.
+      expect((await other).code).toBe(code);
       expect(ports[0].disconnected).toBe(true);
     }
   });

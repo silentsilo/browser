@@ -75,12 +75,14 @@ export class NativeClient {
     });
   }
 
-  close(): void {
+  // `code` is what the requests still waiting are told: the host's own
+  // answer when it is the reason the port closes.
+  close(code = "app-not-running"): void {
     this.clearIdle();
     const port = this.port;
     this.port = null;
     port?.disconnect();
-    this.failAll(new ClientError("app-not-running"));
+    this.failAll(new ClientError(code));
   }
 
   private ensurePort(): NativePort {
@@ -114,7 +116,7 @@ export class NativeClient {
       // A host with no app keeps answering these and never exits, so only a
       // new port can find the app once it is up.
       if (HOST_ALONE.has(code)) {
-        this.close();
+        this.close(code);
         return;
       }
     } else if (answer.type !== waiting.expect) {
