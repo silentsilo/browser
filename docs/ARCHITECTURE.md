@@ -320,7 +320,9 @@ The desktop host does not exit when no app listens: it answers every
 request with `app-not-running` until the browser closes the port. So the
 extension closes the port itself after that answer, and the next request
 starts a new host, which finds the app if it has started, or had its
-setting turned on, in the meantime.
+setting turned on, in the meantime. It does the same after
+`browser-not-supported` and `channel-not-app` (desktop 1.5.1), which the
+popup shows as errors and does not ask again: neither is fixed by waiting.
 
 While the popup says the app is not reachable, the silo is locked or there
 is no silo, it asks again every 2 seconds and moves on when the answer

@@ -42,6 +42,11 @@ SilentSilo (the running desktop app)
   never starts the app. The extension closes the port after an
   `app-not-running` answer, so its next request starts a new host, which
   finds the app if it has started, or had its setting turned on, since.
+  From desktop 1.5.1 the host answers the same way, without opening the
+  pipe, when a browser it does not take started it
+  (`browser-not-supported`), and says `channel-not-app` when the pipe is
+  served by something other than the app. An older host exits in the first
+  case and says `app-not-running` in the second.
 
 ## Framing
 
@@ -241,8 +246,11 @@ as the same user cannot keep raising the window.
 | `busy` | another fill or save is waiting for confirmation, too many requests (any of `logins`, `search`, `show`, `fill`, `save`), a fill or save was declined or timed out in the last few seconds, or a `show` came within 3 seconds of the last one |
 | `no-authenticator` | the silo has no security key or Windows Hello set up, so no fill can be confirmed |
 | `read-failed` | the silo is unlocked, but the app could not read its logins |
+| `browser-not-supported` | answered by the host (desktop 1.5.1): the program that started it is not a browser it takes from where it is installed (Windows only) |
+| `channel-not-app` | answered by the host (desktop 1.5.1): the pipe is there but not served by the app |
 
-`read-failed` came after the first version of this page. An extension that
+`read-failed` came after the first version of this page, and the two host
+codes after it. An extension that
 does not know it shows its generic line, as for any code it does not know.
 An app built before it answers `locked` in its place.
 

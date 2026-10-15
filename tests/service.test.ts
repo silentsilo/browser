@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ClientError } from "../src/background/native-client";
 import { fillableOrigin } from "../src/background/origin";
 import type { RequestBody } from "../src/background/protocol";
-import { Service, TEXT } from "../src/background/service";
+import { Service, TEXT, errorView } from "../src/background/service";
 import { isAtLeast } from "../src/background/version";
 import type { FillArgs, FillResult } from "../src/page/fill-page";
 import { MAX_SAVE_FIELD } from "../src/background/service";
@@ -103,6 +103,19 @@ describe("opening the popup", () => {
   it("rejects a logins answer of the wrong shape", async () => {
     const { service } = setup({ status: unlocked, logins: { logins: [{ label: "no ref" }] } });
     expect(await service.open(1)).toEqual({ state: "error", message: TEXT.badAnswer });
+  });
+});
+
+describe("what the host answers alone", () => {
+  it("says which browsers work, and that another program holds the channel, without waiting", () => {
+    expect(errorView(new ClientError("browser-not-supported"))).toEqual({
+      state: "error",
+      message: TEXT.browserNotSupported,
+    });
+    expect(errorView(new ClientError("channel-not-app"))).toEqual({
+      state: "error",
+      message: TEXT.channelNotApp,
+    });
   });
 });
 

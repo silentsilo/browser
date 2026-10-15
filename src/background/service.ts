@@ -53,6 +53,8 @@ export const TEXT = {
   noAuthenticator: msg("err_no_authenticator"),
   badRequest: msg("err_bad_request"),
   readFailed: msg("err_read_failed"),
+  browserNotSupported: msg("err_browser_not_supported"),
+  channelNotApp: msg("err_channel_not_app"),
   unknownCode: msg("err_unknown_code"),
   alreadyWaiting: msg("err_already_waiting"),
   nothingTyped: msg("err_nothing_typed"),
@@ -331,6 +333,11 @@ export function errorView(error: unknown): Exclude<View, { state: "ready" }> {
       return { state: "error", message: TEXT.badRequest };
     case "read-failed":
       return { state: "error", message: TEXT.readFailed };
+    // Neither is fixed by waiting, so neither is asked again.
+    case "browser-not-supported":
+      return { state: "error", message: TEXT.browserNotSupported };
+    case "channel-not-app":
+      return { state: "error", message: TEXT.channelNotApp };
     default:
       return { state: "error", message: TEXT.unknownCode };
   }

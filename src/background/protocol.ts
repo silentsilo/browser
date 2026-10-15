@@ -77,7 +77,12 @@ export type ErrorCode =
   | "busy"
   | "no-authenticator"
   // Added later: an app before it answers `locked` instead.
-  | "read-failed";
+  | "read-failed"
+  // Answered by the host (desktop 1.5.1): a browser it does not take, and
+  // a channel held by something that is not the app. An older host says
+  // `app-not-running` for both.
+  | "browser-not-supported"
+  | "channel-not-app";
 
 export interface ErrorAnswer {
   id: string;

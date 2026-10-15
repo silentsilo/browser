@@ -195,6 +195,16 @@ describe("the port closing", () => {
     expect((await status).code).toBe("app-not-running");
   });
 
+  it("closes the port after the host refuses the browser or finds another program's channel", async () => {
+    for (const code of ["browser-not-supported", "channel-not-app"]) {
+      const { client, ports } = setup();
+      const status = rejection(client.request({ type: "status" }, 1000));
+      ports[0].answer({ id: "1", type: "error", code, message: "from the host" });
+      expect((await status).code).toBe(code);
+      expect(ports[0].disconnected).toBe(true);
+    }
+  });
+
   it("closes the port after the host's app-not-running, and the next request opens a new one", async () => {
     const { client, ports } = setup();
     const first = rejection(client.request({ type: "status" }, 1000));

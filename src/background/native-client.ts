@@ -111,9 +111,9 @@ export class NativeClient {
     if (answer.type === "error") {
       const code = typeof answer.code === "string" ? answer.code : "bad-answer";
       waiting.reject(new ClientError(code));
-      // A host with no app keeps answering this and never exits, so only a
+      // A host with no app keeps answering these and never exits, so only a
       // new port can find the app once it is up.
-      if (code === "app-not-running") {
+      if (HOST_ALONE.has(code)) {
         this.close();
         return;
       }
@@ -145,6 +145,9 @@ export class NativeClient {
     this.idleTimer = null;
   }
 }
+
+// What a host answers on its own, with no app behind it.
+const HOST_ALONE = new Set(["app-not-running", "browser-not-supported", "channel-not-app"]);
 
 // The browser says why a native port closed only as text.
 //
