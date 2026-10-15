@@ -402,7 +402,7 @@
     "description": "Popup error for any save failure without a more precise text."
   },
   "err_browser_not_supported": {
-    "message": "SilentSilo antwortet diesem Browser nicht. Unter Windows funktioniert es mit Chrome, Edge, Brave und Firefox, wenn sie am üblichen Ort installiert sind.",
+    "message": "SilentSilo antwortet diesem Browser nicht. Unter Windows funktioniert es mit Chrome, Edge und Brave am üblichen Ort und mit Firefox, wo immer es installiert ist.",
     "description": "Popup error: the desktop app does not take requests from this browser (a browser or an install location it does not know). Chrome, Edge, Brave and Firefox are product names."
   },
   "err_channel_not_app": {
