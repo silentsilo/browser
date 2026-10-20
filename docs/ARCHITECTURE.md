@@ -82,14 +82,19 @@ page  <->  extension (popup + background script)  <->  desktop app (native messa
 
 ## Matching
 
-The app matches a login to a site by host and port. A saved login carries
-the site it was saved for, and it is offered only when the tab's host is
-that host or differs from it only by a leading `www.`, on the same port. A
+The app matches a login to a site by site and port. A saved login carries
+the address it was saved for, and it is offered when the tab is on the same
+site: the same host, or another host under the same registrable domain as
+the Public Suffix List reads it, private suffixes included. So a login saved
+for `google.com` is offered on `accounts.google.com` (since desktop 1.5.1),
+while `alice.github.io` and `bob.github.io` are two sites, as are two shops
+on one hosting platform. Logins saved for the exact host come first. An IP
+address or `localhost` matches only itself. The port must be the same; a
 login saved for `http://` also matches the same host over https on the
-default port. No parent domains, no other subdomains, and nothing that
-"looks similar": `paypal` in the address of a phishing page matches nothing.
+default port. Nothing that "looks similar" matches: `paypal` in the address
+of a phishing page, or `paypal.com.evil.example`, is another site.
 
-The Android autofill follows the same host rule (the exact domain or its
+The Android autofill keeps the stricter host rule (the exact domain or its
 `www.` pair) and also checks the scheme and the port the browser reports.
 
 When nothing matches, the popup does not open a search box. A phishing page
@@ -219,6 +224,15 @@ that check passes does the app read the password and send it. After a
 confirmed fill the app puts its window back the way it was when it was
 hidden or minimised before. A confirmation drawn by the extension would be
 drawn inside the browser, which is what we do not trust.
+
+## Shortcut
+
+Since 0.3.1 the manifest declares `_execute_action` with Alt+Shift+L, which
+opens the popup on the current tab exactly as the toolbar button does. No
+new permission: the shortcut grants `activeTab` like a click. It is not
+Ctrl+Shift+L, which Bitwarden suggests, so both can be installed. The
+browser may leave it unset when another extension took it first; the
+person can set it in the browser's shortcut settings.
 
 ## What it does not do
 

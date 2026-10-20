@@ -408,5 +408,9 @@
   "err_channel_not_app": {
     "message": "Alt program ține canalul pe care ascultă SilentSilo, așa că nu s-a trimis nimic. Repornește SilentSilo.",
     "description": "Popup error: the channel the desktop app listens on is held by some other program, so nothing was sent. Restarting the app takes it back."
+  },
+  "cmd_open_popup": {
+    "message": "Deschide SilentSilo pentru această filă",
+    "description": "Description of the keyboard shortcut (Alt+Shift+L) in the browser's shortcut settings: it opens the extension's popup for the current tab."
   }
 }

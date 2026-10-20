@@ -408,5 +408,9 @@
   "err_channel_not_app": {
     "message": "Otro programa ocupa el canal en el que escucha SilentSilo, así que no se envió nada. Reinicia SilentSilo.",
     "description": "Popup error: the channel the desktop app listens on is held by some other program, so nothing was sent. Restarting the app takes it back."
+  },
+  "cmd_open_popup": {
+    "message": "Abrir SilentSilo para esta pestaña",
+    "description": "Description of the keyboard shortcut (Alt+Shift+L) in the browser's shortcut settings: it opens the extension's popup for the current tab."
   }
 }

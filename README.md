@@ -17,7 +17,8 @@ the phone apps are [silentsilo/mobile](https://github.com/silentsilo/mobile).
 The extension is a button and a form. It holds no key, no password and no
 list of logins. When you ask it to fill a page, it sends the page's origin to
 the desktop app over the browser's native messaging channel, the app looks
-up the logins saved for exactly that site, and you confirm the fill in the
+up the logins saved for that site (a login for `google.com` also serves
+`accounts.google.com`), and you confirm the fill in the
 app with Windows Hello, Touch ID or your security key. The extension then writes the
 username and password into the fields you are looking at. It does not keep
 or store them.
@@ -28,6 +29,10 @@ extension reads the password field and the username before it, sends both
 to the app and drops them; the app asks you whether to save, and offers to
 update the password when that login is already there. This needs the
 desktop app 1.4.0 or later.
+
+Alt+Shift+L opens the extension on the current tab. The browser lets you
+change it: `chrome://extensions/shortcuts` in Chrome, Edge and Brave, and
+Manage Extension Shortcuts under the gear in Firefox's add-ons page.
 
 Pages cannot talk to the extension: it has no content script, and its
 background script answers only its own popup. A program running as you on
