@@ -190,8 +190,8 @@ describe("fill", () => {
     expect(await service.fill(3, "r1", GH)).toEqual({ ok: true, usernameFilled: true });
     expect(requests).toEqual([{ type: "fill", origin: "https://github.com", ref: "r1" }]);
     expect(pageCalls).toEqual([
-      { expectedOrigin: "https://github.com", fill: null },
-      { expectedOrigin: "https://github.com", fill: { username: "alex@example.com", password: "hunter2" } },
+      { expectedOrigin: "https://github.com", site: "github.com", fill: null },
+      { expectedOrigin: "https://github.com", site: "github.com", fill: { username: "alex@example.com", password: "hunter2" } },
     ]);
   });
 
@@ -378,7 +378,7 @@ describe("save", () => {
   it("reads the page for the listed origin and offers what it read to the app", async () => {
     const { service, requests, pageCalls, flags } = setup({ save: { outcome: "saved" } });
     expect(await service.save(3, GH)).toEqual({ ok: true, updated: false });
-    expect(pageCalls).toEqual([{ expectedOrigin: GH, fill: null, read: true }]);
+    expect(pageCalls).toEqual([{ expectedOrigin: GH, site: "github.com", fill: null, read: true }]);
     expect(requests).toEqual([{ type: "save", origin: GH, username: "alex@example.com", password: "hunter2" }]);
     expect(flags).toEqual([]);
   });

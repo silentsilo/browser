@@ -428,7 +428,11 @@ describe("the colour of Saved for", () => {
     ["localhost:3000", "localhost:4000", false],
     ["[::1]:5000", "[::1]:5000", true],
     ["[::1]", "[::1]:5000", false],
-    ["gist.github.com", "github.com", false],
+    ["gist.github.com", "github.com", true],
+    ["login.gmx.com", "www.gmx.com", true],
+    ["alice.github.io", "bob.github.io", false],
+    ["github.com.evil.example", "github.com", false],
+    ["127.0.0.1", "127.0.0.2", false],
     ["", "github.com", false],
   ])("%s on %s: same site %s", (saved, tab, same) => {
     expect(sameSite(saved, tab)).toBe(same);

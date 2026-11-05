@@ -51,6 +51,20 @@ async function buildTarget(target) {
   }
   cpSync(join(fonts, "LICENSE"), join(out, "fonts", "OFL.txt"));
   cpSync("LICENSE", join(out, "LICENSE"));
+  // tldts is bundled into the scripts, with the Public Suffix List it carries.
+  const tldts = readFileSync("node_modules/tldts/LICENSE", "utf8");
+  writeFileSync(
+    join(out, "THIRD-PARTY-NOTICES.txt"),
+    [
+      "tldts and tldts-core (MIT), bundled into the scripts:",
+      "",
+      tldts.trim(),
+      "",
+      "They carry the Public Suffix List (MPL-2.0), https://publicsuffix.org/list/,",
+      "whose source is at https://github.com/publicsuffix/list.",
+      "",
+    ].join("\n"),
+  );
 
   if (store) {
     // Files at the root of the zip, manifest.json included: both stores

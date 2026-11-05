@@ -10,6 +10,7 @@ import type { FillArgs, FillResult as PageResult } from "../page/fill-page";
 import { msg } from "../shared/i18n";
 import { ClientError, type NativeClient } from "./native-client";
 import { fillableOrigin, siteName } from "./origin";
+import { siteOf } from "../shared/site";
 import { MIN_APP_VERSION, SAVE_APP_VERSION, type LoginSummary } from "./protocol";
 import { isAtLeast } from "./version";
 
@@ -172,7 +173,7 @@ export class Service {
     if (this.waiting.has(tabId)) return { ok: false, message: TEXT.alreadyWaiting };
     if (this.waiting.size > 0) return { ok: false, message: TEXT.otherTabWaiting };
 
-    const read = await this.inPage(tabId, { expectedOrigin: origin, fill: null, read: true });
+    const read = await this.inPage(tabId, { ...pageFor(origin), fill: null, read: true });
     if (read.outcome === "wrong-origin") return { ok: false, message: TEXT.navigatedSave };
     if (read.outcome === "several") return { ok: false, message: TEXT.severalTyped };
     if (read.outcome !== "read") return { ok: false, message: TEXT.nothingTyped };
@@ -224,7 +225,7 @@ export class Service {
 
     // Look for the fields before asking the app, so nobody confirms a fill
     // that has nowhere to go.
-    const probe = await this.inPage(tabId, { expectedOrigin: origin, fill: null });
+    const probe = await this.inPage(tabId, { ...pageFor(origin), fill: null });
     if (probe.outcome !== "ready") return pageFailure(probe);
 
     if (this.waiting.has(tabId)) return { ok: false, message: TEXT.alreadyWaiting };
@@ -248,7 +249,7 @@ export class Service {
     answer.username = answer.password = "";
     // The page function checks the origin again: the tab may have moved on
     // while the person was confirming.
-    const done = await this.inPage(tabId, { expectedOrigin: origin, fill });
+    const done = await this.inPage(tabId, { ...pageFor(origin), fill });
     fill.username = fill.password = "";
     if (done.outcome !== "filled") return pageFailure(done);
     return { ok: true, usernameFilled: done.usernameFilled };
@@ -341,4 +342,10 @@ export function errorView(error: unknown): Exclude<View, { state: "ready" }> {
     default:
       return { state: "error", message: TEXT.unknownCode };
   }
+}
+
+// The page function's check of where it runs: the origin confirmed, and the
+// site its forms may send to.
+function pageFor(origin: string): Pick<FillArgs, "expectedOrigin" | "site"> {
+  return { expectedOrigin: origin, site: siteOf(new URL(origin).hostname) };
 }

@@ -21,7 +21,9 @@ up the logins saved for that site (a login for `google.com` also serves
 `accounts.google.com`), and you confirm the fill in the
 app with Windows Hello, Touch ID or your security key. The extension then writes the
 username and password into the fields you are looking at. It does not keep
-or store them.
+or store them. On a sign-in that asks for the username first and the
+password on the next page, it fills the username, and the password when you
+fill again on the next page.
 
 It can also save a login. Type it in the page's login form, open the
 extension and click "Save this login in SilentSilo" before you sign in. The

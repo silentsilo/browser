@@ -6,13 +6,7 @@
 import { execFileSync } from "node:child_process";
 
 /** GHSA id -> why it does not apply. Re-check each when its package moves. */
-const IGNORED = {
-  // node-forge, through web-ext's @devicefarmer/adbkit: RSA PKCS#1 v1.5
-  // signature checks. No fixed release exists. adbkit only drives Firefox
-  // for Android (`web-ext run -t firefox-android`), which no script here
-  // runs; `lint:firefox` never loads it.
-  "GHSA-86w9-cpqp-85rv": "node-forge in web-ext's Android tooling, never run",
-};
+const IGNORED = {};
 
 const FAILING = new Set(["high", "critical"]);
 

@@ -11,7 +11,7 @@ function page(html: string): void {
 }
 
 function fill() {
-  return fillPage({ expectedOrigin: location.origin, fill: creds });
+  return fillPage({ expectedOrigin: location.origin, site: location.hostname, fill: creds });
 }
 
 function value(selector: string): string {
@@ -137,6 +137,61 @@ describe("decoys", () => {
   });
 });
 
+describe("the first step of a sign-in, username alone", () => {
+  it("fills a login field when the password comes on the next step", () => {
+    page(`<form><input id="fm-login-id" name="fm-login-id" type="text"><button>Continue</button></form>`);
+    expect(fill()).toEqual({ outcome: "filled", usernameFilled: true });
+    expect(value("#fm-login-id")).toBe(creds.username);
+  });
+
+  it("fills the username field beside a password field still hidden", () => {
+    page(`<form><input name="who" autocomplete="username"><input name="p" type="password" style="display:none"></form>`);
+    expect(fill()).toEqual({ outcome: "filled", usernameFilled: true });
+    expect(value("[name=who]")).toBe(creds.username);
+    expect(value("[name=p]")).toBe("");
+  });
+
+  it("prefers the field marked username over another email field", () => {
+    page(`<form><input name="news" type="email"></form><form><input name="id" autocomplete="username"></form>`);
+    fill();
+    expect(value("[name=id]")).toBe(creds.username);
+    expect(value("[name=news]")).toBe("");
+  });
+
+  it("takes an email field", () => {
+    page(`<div><input id="e" type="email"><button>Next</button></div>`);
+    expect(fill()).toEqual({ outcome: "filled", usernameFilled: true });
+    expect(value("#e")).toBe(creds.username);
+  });
+
+  it("leaves a search box and an unnamed field alone", () => {
+    page(`<div role="search"><input name="login-search" type="email"></div><input name="q"><input name="u">`);
+    expect(fill()).toEqual({ outcome: "no-password", frame: null });
+    expect(value("[name=login-search]")).toBe("");
+    expect(value("[name=q]")).toBe("");
+  });
+
+  it("skips a hidden username decoy", () => {
+    page(`<input name="user" style="display:none">`);
+    expect(fill()).toEqual({ outcome: "no-password", frame: null });
+    expect(value("[name=user]")).toBe("");
+  });
+
+  it("refuses a username form that sends to another site", () => {
+    page(`<form action="https://collect.example/x"><input name="username"></form>`);
+    expect(fill()).toEqual({ outcome: "elsewhere", host: "collect.example" });
+    expect(value("[name=username]")).toBe("");
+  });
+
+  it("only reports when asked without values", () => {
+    page(`<form><input name="email" type="email"></form>`);
+    expect(fillPage({ expectedOrigin: location.origin, site: location.hostname, fill: null })).toEqual({
+      outcome: "ready",
+    });
+    expect(value("[name=email]")).toBe("");
+  });
+});
+
 describe("where the form sends it", () => {
   const stays = [
     `<form>`,
@@ -206,7 +261,7 @@ describe("where the form sends it", () => {
 
   it("only reports, without values, the same way", () => {
     page(`<form action="https://collect.example/steal"><input name="p" type="password"></form>`);
-    expect(fillPage({ expectedOrigin: location.origin, fill: null })).toEqual({
+    expect(fillPage({ expectedOrigin: location.origin, site: location.hostname, fill: null })).toEqual({
       outcome: "elsewhere",
       host: "collect.example",
     });
@@ -216,7 +271,7 @@ describe("where the form sends it", () => {
 describe("what it will not do", () => {
   it("writes nothing when the page is on another origin than the one confirmed", () => {
     page(`<form><input name="u"><input name="p" type="password"></form>`);
-    const result = fillPage({ expectedOrigin: "https://github.com", fill: creds });
+    const result = fillPage({ expectedOrigin: "https://github.com", site: "github.com", fill: creds });
     expect(result).toEqual({ outcome: "wrong-origin" });
     expect(value("[name=u]")).toBe("");
     expect(value("[name=p]")).toBe("");
@@ -224,7 +279,7 @@ describe("what it will not do", () => {
 
   it("only reports when asked without values", () => {
     page(`<form><input name="u"><input name="p" type="password"></form>`);
-    expect(fillPage({ expectedOrigin: location.origin, fill: null })).toEqual({ outcome: "ready" });
+    expect(fillPage({ expectedOrigin: location.origin, site: location.hostname, fill: null })).toEqual({ outcome: "ready" });
     expect(value("[name=p]")).toBe("");
   });
 
@@ -319,7 +374,7 @@ describe("setting values the way frameworks notice", () => {
 
 describe("reading for a save", () => {
   function read() {
-    return fillPage({ expectedOrigin: location.origin, fill: null, read: true });
+    return fillPage({ expectedOrigin: location.origin, site: location.hostname, fill: null, read: true });
   }
 
   function type(selector: string, text: string): void {
@@ -403,7 +458,7 @@ describe("reading for a save", () => {
   it("reads nothing on another origin", () => {
     page(`<form><input name="p" type="password"></form>`);
     type("[name=p]", "hunter2");
-    expect(fillPage({ expectedOrigin: "https://github.com", fill: null, read: true })).toEqual({
+    expect(fillPage({ expectedOrigin: "https://github.com", site: "github.com", fill: null, read: true })).toEqual({
       outcome: "wrong-origin",
     });
   });

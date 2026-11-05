@@ -9,11 +9,15 @@
 // any other text on the page. When the top frame has no password field it
 // checks whether a frame holds one, and fills nothing there. With `fill` set
 // it writes the two values and returns; without either, it only reports
-// whether it could.
+// whether it could. On the first step of a sign-in that asks for the
+// username alone, it writes only the username.
 
 export interface FillArgs {
   // The origin the person confirmed. A page that navigated since gets nothing.
   expectedOrigin: string;
+  // The site the page belongs to, from siteOf in src/shared/site.ts: forms
+  // may send anywhere under it.
+  site: string;
   fill: { username: string; password: string } | null;
   // Return what is typed in the login form instead of writing to it.
   read?: boolean;
@@ -36,6 +40,8 @@ export type FillResult =
 
 export function fillPage(args: FillArgs): FillResult {
   if (location.origin !== args.expectedOrigin) return { outcome: "wrong-origin" };
+  const here = location.hostname;
+  const site = here === args.site || here.endsWith(`.${args.site}`) ? args.site : here;
 
   // Read through the prototypes, never the element: a form's named controls
   // shadow its own properties, and the document's named images and forms
@@ -153,8 +159,9 @@ export function fillPage(args: FillArgs): FillResult {
     return null;
   }
 
-  // This site, one of its subdomains, or a domain it is under: the same
-  // owner. Anything else, a script address included, is another site.
+  // Any host under this site's registrable domain: the same owner, as the
+  // app matches logins. Anything else, a script address included, is
+  // another site.
   function foreignHost(address: string): string | null {
     let url: URL;
     try {
@@ -165,9 +172,8 @@ export function fillPage(args: FillArgs): FillResult {
     if (url.protocol !== "https:" && url.protocol !== location.protocol) {
       return url.protocol === "http:" ? url.host : "";
     }
-    const here = location.hostname;
     const there = url.hostname;
-    if (there === here || there.endsWith(`.${here}`) || here.endsWith(`.${there}`)) return null;
+    if (there === site || there.endsWith(`.${site}`)) return null;
     return url.host;
   }
 
@@ -206,6 +212,16 @@ export function fillPage(args: FillArgs): FillResult {
       before.find((input) => wants(input, "email")) ??
       before[before.length - 1]
     );
+  }
+
+  // A field that says it takes the username, for a first step that asks for
+  // it alone: by its autocomplete, its type, then its name. 0 is none.
+  function usernameRank(input: HTMLInputElement): number {
+    if (!["text", "email", "tel"].includes(input.type) || input.closest("[role=search]") || !usable(input)) return 0;
+    if (wants(input, "username")) return 4;
+    if (wants(input, "email")) return 3;
+    if (input.type === "email") return 2;
+    return /user|login|e-?mail|account|identifier/i.test(`${input.name} ${input.id}`) ? 1 : 0;
   }
 
   const inputs = allInputs(document);
@@ -251,7 +267,21 @@ export function fillPage(args: FillArgs): FillResult {
     return { outcome: "elsewhere", host: sendsElsewhere(first) ?? "" };
   }
 
-  if (!password) {
+  let username: HTMLInputElement | undefined;
+  if (password) {
+    username = usernameBefore(password);
+  } else {
+    // No password field: a first step that asks for the username alone.
+    const ranked = inputs
+      .map((input) => ({ input, rank: usernameRank(input) }))
+      .filter((field) => field.rank > 0)
+      .sort((a, b) => b.rank - a.rank)
+      .map((field) => field.input);
+    username = ranked.find((input) => sendsElsewhere(input) === null);
+    if (!username && ranked.length > 0) return { outcome: "elsewhere", host: sendsElsewhere(ranked[0]) ?? "" };
+  }
+
+  if (!password && !username) {
     // A frame this page can open (same origin, srcdoc, about:blank) is
     // looked into for a password field only; one from another site is
     // judged by its address.
@@ -280,8 +310,6 @@ export function fillPage(args: FillArgs): FillResult {
     return { outcome: "no-password", frame: thisSite ? "this-site" : otherSite ? "other-site" : null };
   }
 
-  const username = usernameBefore(password);
-
   if (!args.fill) return { outcome: "ready" };
 
   // The native setter, then input and change, so React, Vue and Angular
@@ -295,6 +323,6 @@ export function fillPage(args: FillArgs): FillResult {
   }
 
   if (username) write(username, args.fill.username);
-  write(password, args.fill.password);
+  if (password) write(password, args.fill.password);
   return { outcome: "filled", usernameFilled: username !== undefined };
 }

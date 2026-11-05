@@ -52,10 +52,15 @@ page  <->  extension (popup + background script)  <->  desktop app (native messa
   between gets nothing.
 - **The fields** are the page's own login form, not one planted on it.
   Someone who can post markup on the right site, but not scripts, could add
-  a form that sends what is typed to their own server. So a password field
-  is filled only when its form, and every button in it, sends to this
-  site, a subdomain of it, or a domain it is under; otherwise the popup
-  names where the form sends and fills nothing. Addresses are read against
+  a form that sends what is typed to their own server. So a field is
+  filled only when its form, and every button in it, sends to this site:
+  a host under the page's registrable domain, the rule the app matches
+  logins by (so `www.gmx.com` may send to `login.gmx.com`, while
+  `alice.github.io` may not send to `bob.github.io`). The background works
+  out the site with the Public Suffix List bundled from `tldts` and passes
+  it to the page function, which falls back to the page's own host if the
+  two disagree. Otherwise the popup names where the form sends and fills
+  nothing. Addresses are read against
   the document's base, as the browser sends them, so a planted `<base href>`
   counts; and the form is read through the DOM prototypes, since planted
   markup can name a field `elements` and hide the form's buttons from a
@@ -63,6 +68,12 @@ page  <->  extension (popup + background script)  <->  desktop app (native messa
   has something laid over it, is skipped: hidden, inert or `aria-hidden`
   on it or any parent, no size, off the page, or covered at every point
   tested with `elementFromPoint` (its own label drawn over it is fine).
+  With no usable password field, a sign-in's first step that asks for the
+  username alone gets the username only: a text, email or tel field marked
+  `autocomplete` username or email, then `type="email"`, then one whose name
+  or id says user, login, email, account or identifier, never in a search
+  box, under the same form rule. The app still hands over the whole login;
+  the password is dropped unwritten, and the next page is a second fill.
 - **The extension** asks, writes and, for a save, reads. It sends the
   page's origin to the app, shows what the app answers (labels only, never
   secrets), and on the user's choice asks for one fill or offers one login
