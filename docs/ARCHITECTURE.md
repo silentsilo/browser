@@ -336,7 +336,7 @@ page  <->  extension  <->  handler (appex in SilentSilo.app)  <->  desktop app
   with the app's Developer ID and its own provisioning profile (app group),
   notarised with the app, and turned on by the person in Safari's settings.
 
-Before code: the app group and the appex's App ID registered by Alex at
+Before code: the app group and the appex's App ID registered at
 Apple, and a provisioning profile for each; the appex built and signed in
 the release workflow before the app around it; a test session on the Mac,
 where Safari needs the person to switch the extension on.

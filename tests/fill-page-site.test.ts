@@ -5,7 +5,7 @@ import { fillPage } from "../src/page/fill-page";
 import { siteOf } from "../src/shared/site";
 
 // A page on www.gmx.com, whose login form posts to login.gmx.com.
-const creds = { username: "alex@gmx.com", password: "hunter2" };
+const creds = { username: "sam@example.net", password: "hunter2" };
 
 function fill(site = siteOf(location.hostname)) {
   return fillPage({ expectedOrigin: location.origin, site, fill: creds });
