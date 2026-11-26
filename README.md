@@ -39,8 +39,9 @@ Manage Extension Shortcuts under the gear in Firefox's add-ons page.
 Pages cannot talk to the extension: it has no content script, and its
 background script answers only its own popup. A program running as you on
 this computer can reach the desktop app the way the extension does and ask
-for a fill, or offer a login to save. The app shows every request, and
-nothing is sent or saved until you confirm it there.
+for a fill, or offer a login to save. Every fill and every save waits for
+you to confirm it in the app. The list of a site's logins (label, username,
+site) is answered without asking.
 
 To find the logins for a site, the desktop app decrypts every password entry
 of the open silo in its own memory on each lookup, keeps the label, username
@@ -92,7 +93,6 @@ service worker load nothing from the network: the manifest's content
 security policy allows only the extension's own files.
 
 The protocol with the desktop app is in [docs/PROTOCOL.md](docs/PROTOCOL.md).
-The extension needs SilentSilo 1.2.0 or later.
 
 ## Build
 

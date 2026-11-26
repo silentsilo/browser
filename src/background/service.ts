@@ -126,7 +126,7 @@ export class Service {
       const answer = await this.deps.client.request({ type: "search", query: trimmed }, QUICK_TIMEOUT_MS);
       const logins = readLogins(answer.logins);
       if (!logins) return { state: "error", message: TEXT.badAnswer };
-      return { state: "results", logins: logins.slice(0, 20) };
+      return { state: "results", logins: logins.slice(0, 10) };
     } catch (error) {
       return errorView(error);
     }

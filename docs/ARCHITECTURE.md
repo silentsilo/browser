@@ -132,19 +132,23 @@ needs a change in core; that is a follow-up.
 
 Native messaging, not a local HTTP port. A port would be reachable by every
 program on the computer and every page in every browser. The host manifest
-is written by the desktop installer, under the current user, and removed on
-uninstall.
+is written under the current user: by the desktop installer on Windows, and
+by the app's Browser extension setting on Linux and macOS, which removes it
+again when turned off.
 
 What is actually checked, in the order a message meets it:
 
 1. **The browser** starts the host only for an extension id listed in the
    host manifest's `allowed_origins`. Pages cannot open the channel.
 2. **The host** reads the calling extension's origin from its first
-   argument and refuses any id not compiled into it, and refuses to run when
-   its parent process is not a browser.
+   argument and refuses any id not compiled into it. On Windows a release
+   build also refuses to run when its parent process is not a browser.
 3. **The host** checks that the pipe server is the real SilentSilo app
-   before it sends anything.
-4. **The app** checks that the pipe client is the signed host binary.
+   before it sends anything (Windows). On Linux and macOS the socket sits in
+   a directory only this user can open, and the host checks the peer's user.
+4. **The app** checks that the client is the host installed beside it: the
+   signed binary on Windows, the path on Linux and macOS. The desktop
+   repository's `docs/ARCHITECTURE.md` has the checks for each system.
 5. **The person** confirms every fill in the app, on a dialog that names the
    site and the login, then with Windows Hello, Touch ID or the security
    key.

@@ -10,8 +10,11 @@ first, then both sides, in the same release.
 extension (service worker)
    | chrome.runtime.connectNative("com.silentsilo.desktop")
    v
-silentsilo-browser-host.exe        started by the browser, one per connection
-   | named pipe \\.\pipe\silentsilo-browser-<user SID>, current user only
+silentsilo-browser-host            started by the browser, one per connection
+   | Windows: named pipe \\.\pipe\silentsilo-browser-<user SID>
+   | Linux: $XDG_RUNTIME_DIR/silentsilo/browser.sock
+   | macOS: ~/Library/Application Support/SilentSilo/browser.sock
+   | current user only
    v
 SilentSilo (the running desktop app)
 ```
@@ -20,8 +23,8 @@ SilentSilo (the running desktop app)
   holds nothing and decides nothing: it checks who started it, relays whole
   messages between the browser's stdio and the pipe, and exits when either
   side closes. It is a separate binary so the browser never starts the full
-  app, with its webview, just to relay a message. It runs on Windows only
-  for now.
+  app, with its webview, just to relay a message. It runs on Windows,
+  Linux and macOS.
 - **The browser** starts the host and names the calling extension in the
   arguments. The host accepts Chrome, Edge, Brave and Firefox, and refuses
   any id not in its own list for that browser, before it opens the pipe.
@@ -97,9 +100,11 @@ the tab (`chrome.tabs`), never from the page.
 
 - Only `https:` origins, plus `http://localhost` and loopback addresses. Any
   other origin answers an empty list, even while the app is locked.
-- A login matches when the host of its saved address equals the tab's host,
-  or when one is `www.` plus the other. Nothing else: no parent domains, no
-  similar names, no guessing from the label.
+- A login matches when its saved address is on the same site as the tab:
+  the same host, or another host under the same registrable domain as the
+  Public Suffix List reads it (since desktop 1.5.1). `ARCHITECTURE.md`,
+  "Matching", has the whole rule. No similar names, no guessing from the
+  label.
 - Ports must be equal. A saved address without a port means its scheme's
   default port (443, or 80 for `http://`), never any port. A saved `http://`
   address also matches the same host over https on 443. On `localhost` and
@@ -124,7 +129,9 @@ since, the extension refuses before it sends anything.
 Asked only when the person types in the popup, because nothing matched or
 they want another login. The app allows 15 searches, then one every 4
 seconds, across all connections, on top of the lookup rations, and answers
-`busy` past that. Same answer shape as `logins`, at most 20 results,
+`busy` past that. Once the answers since the last unlock have named 40
+different logins, every further search answers `busy` until the silo is
+locked. Same answer shape as `logins`, at most 10 results,
 matched on label and username. A query shorter than two characters, counted
 after trimming, answers an empty list; the extension does not send one, and
 the popup says "Type at least two characters".
@@ -155,7 +162,7 @@ person thinks, and only "Search anyway" opens the search box.
 
 The app shows its own confirmation dialog (`BrowserFillDialog`), above other
 windows, naming the site and the login. Its Fill button asks for Windows
-Hello or the security key, the same check the app uses to reveal a
+Hello, Touch ID or the security key, the same check the app uses to reveal a
 protected entry. Nothing is sent before that succeeds. After a confirmed
 fill, a window that was hidden or minimised before the dialog goes back to
 that state.
@@ -216,8 +223,8 @@ when the silo is locked or the app has no silo yet.
 
 The app unminimises, shows (it may be hidden in the notification area) and
 focuses its window. While the silo is locked the window is on its unlock
-screen, and the unlock happens there as it always does, with Windows Hello
-or the security key. While it is unlocked the window just comes forward. The
+screen, and the unlock happens there as it always does, with Windows Hello,
+Touch ID or the security key. While it is unlocked the window just comes forward. The
 window is not kept above other windows.
 
 The answer carries nothing but `id` and `type`. Nothing secret goes either
@@ -237,13 +244,13 @@ as the same user cannot keep raising the window.
 
 | code | meaning |
 |---|---|
-| `app-not-running` | answered by the host: nothing listens on the pipe, or the pipe is not the real app's (another user's, or served by another program) |
+| `app-not-running` | answered by the host: nothing listens on the pipe or socket. One served by another program answers `channel-not-app` (from desktop 1.5.1) |
 | `locked` | no silo is unlocked |
 | `no-silo` | the app has no silo yet |
 | `unknown-ref` | the ref is stale (the silo locked, or was switched); for a `save`, the silo locked or was switched while the person was asked |
 | `cancelled` | the person declined or the prompt timed out |
 | `bad-request` | malformed, too large, unknown type, disallowed origin; for a `save`, an empty password, or a username or password over 1024 characters (Unicode scalar values, not UTF-16 units) |
-| `busy` | another fill or save is waiting for confirmation, too many requests (any of `logins`, `search`, `show`, `fill`, `save`), a fill or save was declined or timed out in the last few seconds, or a `show` came within 3 seconds of the last one |
+| `busy` | another fill or save is waiting for confirmation, too many requests (any of `logins`, `search`, `show`, `fill`, `save`), a fill or save was declined or timed out in the last few seconds, a `show` came within 3 seconds of the last one, or searches since the unlock have named 40 logins |
 | `no-authenticator` | the silo has no security key or Windows Hello set up, so no fill can be confirmed |
 | `read-failed` | the silo is unlocked, but the app could not read its logins |
 | `browser-not-supported` | answered by the host (desktop 1.5.1): the program that started it is not a browser it takes from where it is installed (Windows only) |
@@ -270,9 +277,9 @@ whatever the cause, and from any request. The one case it names is its own:
 when a fill from another tab is still waiting for confirmation, the
 extension says so and does not send the second `fill` at all.
 
-A host started by anything other than a supported browser exits before it
-reads a message. The extension sees only the port closing, and shows it like a
-host that found no app: SilentSilo is not reachable. A host the browser cannot
+A host started by anything other than a supported browser answers
+`browser-not-supported` (from desktop 1.5.1; an older host exits, and the
+extension shows that as SilentSilo not reachable). A host the browser cannot
 find, or that does not list this extension, is shown as not installed.
 
 ## Versions

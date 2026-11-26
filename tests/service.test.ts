@@ -120,12 +120,12 @@ describe("what the host answers alone", () => {
 });
 
 describe("search", () => {
-  it("sends the trimmed query and returns at most 20 results", async () => {
+  it("sends the trimmed query and returns at most 10 results, as the app sends", async () => {
     const many = Array.from({ length: 30 }, (_, i) => ({ ref: `r${i}`, label: `Bank ${i}`, username: "" }));
     const { service, requests } = setup({ search: { logins: many } });
     const result = await service.search("  bank ");
     expect(requests).toEqual([{ type: "search", query: "bank" }]);
-    expect(result.state === "results" && result.logins.length).toBe(20);
+    expect(result.state === "results" && result.logins.length).toBe(10);
   });
 
   it("keeps the site each result was saved for", async () => {
