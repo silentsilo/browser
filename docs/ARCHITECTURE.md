@@ -11,10 +11,8 @@ page and then drops: it does not keep or store it, and never sends it
 anywhere else. The one password it reads from a page to save, on the
 person's click, it sends to the app and then drops the same way. Copies can stay in the browser's memory until the garbage
 collector reclaims them, because JavaScript gives no way to wipe a string.
-The browser is the most attacked program on the computer, with a hostile
-page in every tab, and an extension is one more thing in it. The only way to make a
-compromised extension harmless is to make sure there is nothing in it worth
-taking.
+Every tab can hold a hostile page, and an extension runs beside them. So the
+extension holds nothing worth taking if it is compromised.
 
 **The extension reaches passwords only.** It can ask for logins (label,
 username, the site they were saved for) and, after a confirmed fill, one
